@@ -5,7 +5,7 @@ int main() {
     // 初始化窗口
     const int screenWidth = 800;
     const int screenHeight = 600;
-    InitWindow(screenWidth, screenHeight, "旋转立方体");
+    InitWindow(screenWidth, screenHeight, "Rotating Cube");
 
     // 配置 3D 摄像机：从斜上方俯视原点
     Camera3D camera = { 0 };
@@ -46,8 +46,11 @@ int main() {
         EndMode3D();
 
         // 2D 文字提示
-        DrawText("Raylib 3D 示例：旋转立方体", 10, 10, 20, DARKGRAY);
-        DrawText("按 ESC 退出", 10, 40, 18, GRAY);
+        DrawText("Raylib 3D Demo: Rotating Cube", 10, 10, 20, DARKGRAY);
+        DrawText("Press ESC to exit", 10, 40, 18, GRAY);
+
+        // 显示小组编号
+        DrawText("Group 28", screenWidth/2 - 60, screenHeight - 50, 32, MAROON);
 
         EndDrawing();
     }
