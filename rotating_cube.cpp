@@ -51,7 +51,7 @@ int main() {
 
         // 显示小组编号
         DrawText("Group 28", screenWidth/2 - 60, screenHeight - 50, 32, MAROON);
-        DrawText("Li Yuhan & Liang Zhixia", screenWidth/2 - 100, screenHeight - 20, 18, MAROON);
+        DrawText("Stanley Lee & Liang Zhixia", screenWidth/2 - 100, screenHeight - 20, 18, MAROON);
 
         EndDrawing();
     }
