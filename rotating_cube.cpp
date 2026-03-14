@@ -5,7 +5,7 @@ int main() {
     // 初始化窗口
     const int screenWidth = 800;
     const int screenHeight = 600;
-    InitWindow(screenWidth, screenHeight, "Rotating Cube");
+    InitWindow(screenWidth, screenHeight, "Rotating Cube"); //设置窗口宽高和标题
 
     // 配置 3D 摄像机：从斜上方俯视原点
     Camera3D camera = { 0 };
@@ -18,7 +18,7 @@ int main() {
     // 立方体参数
     const Vector3 cubeSize = { 2.0f, 2.0f, 2.0f };
 
-    SetTargetFPS(60);
+    SetTargetFPS(60);  //帧率
 
     // 主循环：按 ESC 或关闭窗口退出
     while (!WindowShouldClose()) {
