@@ -3,16 +3,16 @@
 
 int main() {
     // 初始化窗口
-    const int screenWidth = 800;
+    const int screenWidth  = 800;
     const int screenHeight = 600;
     InitWindow(screenWidth, screenHeight, "Rotating Cube"); //设置窗口宽高和标题
 
     // 配置 3D 摄像机：从斜上方俯视原点
-    Camera3D camera = { 0 };
-    camera.position = (Vector3){ 6.0f, 6.0f, 6.0f };   // 摄像机位置
-    camera.target   = (Vector3){ 0.0f, 1.0f, 0.0f };   // 注视目标
-    camera.up       = (Vector3){ 0.0f, 1.0f, 0.0f };   // 上方向
-    camera.fovy     = 45.0f;                             // 视场角
+    Camera3D camera   = { 0 };
+    camera.position   = (Vector3){ 6.0f, 6.0f, 6.0f };   // 摄像机位置
+    camera.target     = (Vector3){ 0.0f, 1.0f, 0.0f };   // 注视目标
+    camera.up         = (Vector3){ 0.0f, 1.0f, 0.0f };   // 上方向
+    camera.fovy       = 45.0f;                           // 视场角
     camera.projection = CAMERA_PERSPECTIVE;              // 透视投影
 
     // 立方体参数
