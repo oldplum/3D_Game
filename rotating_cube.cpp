@@ -18,6 +18,31 @@ int main() {
     // 立方体参数
     const Vector3 cubeSize = { 2.0f, 2.0f, 2.0f };
 
+    const char *fontCandidates[] = {
+        "/mnt/c/Windows/Fonts/NotoSansSC-VF.ttf",
+        "/mnt/c/Windows/Fonts/msyh.ttc",
+        "/mnt/c/Windows/Fonts/simhei.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    };
+
+    const char *memberText = u8"Stanley Lee & 梁致夏";
+
+    Font chineseFont = { 0 };
+    bool customFontLoaded = false;
+    for (int i = 0; i < 4; i++) {
+        if (FileExists(fontCandidates[i])) {
+            int codepointCount = 0;
+            int *codepoints = LoadCodepoints(memberText, &codepointCount);
+            chineseFont = LoadFontEx(fontCandidates[i], 36, codepoints, codepointCount);
+            UnloadCodepoints(codepoints);
+            if (chineseFont.texture.id > 0) {
+                customFontLoaded = true;
+                break;
+            }
+        }
+    }
+    if (!customFontLoaded) chineseFont = GetFontDefault();
+
     SetTargetFPS(60);  //帧率
 
     // 主循环：按 ESC 或关闭窗口退出
@@ -51,11 +76,17 @@ int main() {
 
         // 显示小组编号
         DrawText("Group 28", screenWidth/2 - 60, screenHeight - 50, 32, MAROON);
-        DrawText("Stanley Lee & Liang Zhixia", screenWidth/2 - 100, screenHeight - 20, 18, MAROON);
+
+        const float memberFontSize = 26.0f;
+        Vector2 memberSize = MeasureTextEx(chineseFont, memberText, memberFontSize, 1.0f);
+        DrawTextEx(chineseFont, memberText,
+                   (Vector2){ (screenWidth - memberSize.x) * 0.5f, (float)screenHeight - 22.0f },
+                   memberFontSize, 1.0f, MAROON);
 
         EndDrawing();
     }
 
+    if (customFontLoaded) UnloadFont(chineseFont);
     CloseWindow();
     return 0;
 }
