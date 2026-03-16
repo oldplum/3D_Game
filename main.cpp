@@ -22,37 +22,45 @@ int main() {
     }
 
     int score = 0;
+    bool gameOver = false;
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-        // 更新
-        ball.Move();
-        ball.BounceEdge(screenWidth, screenHeight);
+        if (!gameOver) {
+            // 更新
+            ball.Move();
+            ball.BounceEdge(screenWidth, screenHeight);
 
-        // 板移动
-        if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(5);
-        if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(5);
+            // 板移动
+            if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(5);
+            if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(5);
 
-        // 球碰挡板反弹：仅在球向下运动时处理，避免抖动。
-        Vector2 ballPos = ball.GetPosition();
-        Vector2 ballSpeed = ball.GetSpeed();
-        float ballRadius = ball.GetRadius();
-        Rectangle paddleRect = paddle.GetRect();
-        if (ballSpeed.y > 0 && CheckCollisionCircleRec(ballPos, ballRadius, paddleRect)) {
-            ball.ReverseY();
-            ballPos.y = paddleRect.y - ballRadius - 1.0f;
-            ball.SetPosition(ballPos);
-        }
-
-        // 球碰砖块：砖块消失 + 计分 + 反弹。
-        for (auto& brick : bricks) {
-            if (!brick.IsActive()) continue;
-            if (CheckCollisionCircleRec(ball.GetPosition(), ball.GetRadius(), brick.GetRect())) {
-                brick.SetActive(false);
-                score += 10;
+            // 球碰挡板反弹：仅在球向下运动时处理，避免抖动。
+            Vector2 ballPos = ball.GetPosition();
+            Vector2 ballSpeed = ball.GetSpeed();
+            float ballRadius = ball.GetRadius();
+            Rectangle paddleRect = paddle.GetRect();
+            if (ballSpeed.y > 0 && CheckCollisionCircleRec(ballPos, ballRadius, paddleRect)) {
                 ball.ReverseY();
-                break;
+                ballPos.y = paddleRect.y - ballRadius - 1.0f;
+                ball.SetPosition(ballPos);
+            }
+
+            // 球碰砖块：砖块消失 + 计分 + 反弹。
+            for (auto& brick : bricks) {
+                if (!brick.IsActive()) continue;
+                if (CheckCollisionCircleRec(ball.GetPosition(), ball.GetRadius(), brick.GetRect())) {
+                    brick.SetActive(false);
+                    score += 10;
+                    ball.ReverseY();
+                    break;
+                }
+            }
+
+            // 球触底判负。
+            if (ball.GetPosition().y + ball.GetRadius() >= screenHeight) {
+                gameOver = true;
             }
         }
 
@@ -71,6 +79,10 @@ int main() {
         paddle.Draw();
         for (auto& brick : bricks) brick.Draw();
         DrawText(TextFormat("Score: %d", score), 12, 10, 24, DARKGRAY);
+
+        if (gameOver) {
+            DrawText("GAME OVER", screenWidth / 2 - 120, screenHeight / 2 - 10, 40, RED);
+        }
 
         EndDrawing();
     }

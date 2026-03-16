@@ -28,16 +28,14 @@ void Ball::Draw() {
 // }
 
 void Ball::BounceEdge(int screenWidth, int screenHeight) {
+    (void)screenHeight;
+
     // 左右边界
     if (position.x - radius <= 0 || position.x + radius >= screenWidth) {
         speed.x *= -1;
     }
     // 上边界
     if (position.y - radius <= 0) {
-        speed.y *= -1;
-    }
-    // 下边界（新增）
-    if (position.y + radius >= screenHeight) {
         speed.y *= -1;
     }
 }
