@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/breakout_week2.dir/main.cpp.o CMakeFiles/breakout_week2.dir/Ball.cpp.o CMakeFiles/breakout_week2.dir/Paddle.cpp.o CMakeFiles/breakout_week2.dir/Brick.cpp.o -o breakout_week2  /usr/local/lib/libraylib.a -lGL -lm -lpthread -ldl -lrt -lX11 

@@ -1,3 +1,0 @@
-/home/oldplum/3D_Game/build/CMakeFiles/breakout_week2.dir
-/home/oldplum/3D_Game/build/CMakeFiles/edit_cache.dir
-/home/oldplum/3D_Game/build/CMakeFiles/rebuild_cache.dir
