@@ -18,6 +18,7 @@ int main() {
     // 立方体参数
     const Vector3 cubeSize = { 2.0f, 2.0f, 2.0f };
 
+    // 按优先级尝试可显示中文的字体（WSL 下优先复用 Windows 字体）
     const char *fontCandidates[] = {
         "/mnt/c/Windows/Fonts/NotoSansSC-VF.ttf",
         "/mnt/c/Windows/Fonts/msyh.ttc",
@@ -25,6 +26,7 @@ int main() {
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
     };
 
+    // 目标文本：后续按这段文本提取码点，确保中文字形被加载
     const char *memberText = u8"Stanley Lee & 梁致夏";
 
     Font chineseFont = { 0 };
@@ -32,6 +34,7 @@ int main() {
     for (int i = 0; i < 4; i++) {
         if (FileExists(fontCandidates[i])) {
             int codepointCount = 0;
+            // 从 UTF-8 文本提取 Unicode 码点，避免中文变成 ???
             int *codepoints = LoadCodepoints(memberText, &codepointCount);
             chineseFont = LoadFontEx(fontCandidates[i], 36, codepoints, codepointCount);
             UnloadCodepoints(codepoints);
@@ -41,7 +44,9 @@ int main() {
             }
         }
     }
-    if (!customFontLoaded) chineseFont = GetFontDefault();
+    // 所有候选字体都失败时回退默认字体（通常不含中文，仅保证程序可运行）
+    if (!customFontLoaded) 
+        chineseFont = GetFontDefault();
 
     SetTargetFPS(60);  //帧率
 
@@ -55,18 +60,18 @@ int main() {
 
         BeginMode3D(camera);
 
-            // 利用矩阵栈实现绕 Y 轴自转
-            rlPushMatrix();
-                rlTranslatef(0.0f, 1.0f, 0.0f);               // 平移到绘制中心
-                rlRotatef(rotationAngle, 0.0f, 1.0f, 0.0f);   // 绕 Y 轴旋转
+        // 利用矩阵栈实现绕 Y 轴自转
+        rlPushMatrix();
+        rlTranslatef(0.0f, 1.0f, 0.0f);               // 平移到绘制中心
+        rlRotatef(rotationAngle, 0.0f, 1.0f, 0.0f);   // 绕 Y 轴旋转
 
-                // 在局部坐标原点绘制立方体（实心 + 线框）
-                DrawCube((Vector3){ 0 }, cubeSize.x, cubeSize.y, cubeSize.z, SKYBLUE);
-                DrawCubeWires((Vector3){ 0 }, cubeSize.x, cubeSize.y, cubeSize.z, DARKBLUE);
-            rlPopMatrix();
+        // 在局部坐标原点绘制立方体（实心 + 线框）
+        DrawCube((Vector3){ 0 }, cubeSize.x, cubeSize.y, cubeSize.z, SKYBLUE);
+        DrawCubeWires((Vector3){ 0 }, cubeSize.x, cubeSize.y, cubeSize.z, DARKBLUE);
+        rlPopMatrix();
 
-            // 地面参考网格
-            DrawGrid(20, 1.0f);
+        // 地面参考网格
+        DrawGrid(20, 1.0f);
 
         EndMode3D();
 
@@ -78,15 +83,16 @@ int main() {
         DrawText("Group 28", screenWidth/2 - 60, screenHeight - 50, 32, MAROON);
 
         const float memberFontSize = 26.0f;
+        // 先测量文本尺寸，再按窗口宽度水平居中绘制
         Vector2 memberSize = MeasureTextEx(chineseFont, memberText, memberFontSize, 1.0f);
-        DrawTextEx(chineseFont, memberText,
-                   (Vector2){ (screenWidth - memberSize.x) * 0.5f, (float)screenHeight - 22.0f },
-                   memberFontSize, 1.0f, MAROON);
+        DrawTextEx(chineseFont, memberText, (Vector2){ (screenWidth - memberSize.x) * 0.5f, (float)screenHeight - 22.0f }, memberFontSize, 1.0f, MAROON);
 
         EndDrawing();
     }
 
-    if (customFontLoaded) UnloadFont(chineseFont);
+    // 仅释放自定义加载的字体，默认字体无需手动释放
+    if (customFontLoaded) 
+        UnloadFont(chineseFont);
     CloseWindow();
     return 0;
 }
