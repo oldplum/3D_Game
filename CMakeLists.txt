@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.10)
+project(breakout_week2)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_library(RAYLIB_LIBRARY raylib REQUIRED)
+
+add_executable(breakout_week2
+    main.cpp
+    Ball.cpp
+    Paddle.cpp
+    Brick.cpp
+)
+
+target_link_libraries(breakout_week2
+    PRIVATE
+    ${RAYLIB_LIBRARY}
+    GL
+    m
+    pthread
+    dl
+    rt
+    X11
+)
