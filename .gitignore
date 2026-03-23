@@ -1,0 +1,15 @@
+/build/
+/output/
+/.vscode/
+
+# CMake/g++ generated executables in repo root
+/game
+/breakout_week2
+/rotating_cube
+/orbiting_sphere
+
+# Optional local VS Code settings
+/.vscode/settings.json
+
+rotating_cube.cpp
+orbiting_sphere.cpp

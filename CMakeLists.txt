@@ -13,6 +13,8 @@ add_executable(breakout_week2
     Brick.cpp
 )
 
+set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)
+
 target_link_libraries(breakout_week2
     PRIVATE
     ${RAYLIB_LIBRARY}
