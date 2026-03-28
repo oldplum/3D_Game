@@ -231,8 +231,8 @@ int main() {
             if (pierceTimer > 0) pierceTimer--;
             
             // 挡板移动
-            if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(7);
-            if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(7);
+            if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(9);
+            if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(9);
             
             // 暂停
             if (IsKeyPressed(KEY_P)) gameState = PAUSED;
