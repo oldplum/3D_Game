@@ -11,6 +11,7 @@ add_executable(breakout_week2
     Ball.cpp
     Paddle.cpp
     Brick.cpp
+    PowerUp.cpp
 )
 
 set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)

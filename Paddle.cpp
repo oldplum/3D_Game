@@ -2,6 +2,7 @@
 
 Paddle::Paddle(float x, float y, float w, float h) {
     rect = { x, y, w, h };
+    originalWidth = w;
 }
 
 void Paddle::Draw() {
@@ -17,4 +18,12 @@ void Paddle::MoveRight(float speed) {
     rect.x += speed;
     if (rect.x + rect.width > GetScreenWidth())
         rect.x = GetScreenWidth() - rect.width;
+}
+
+void Paddle::SetWidth(float w) {
+    rect.width = w;
+    // 保证挡板不超出右边界
+    if (rect.x + rect.width > GetScreenWidth()) {
+        rect.x = GetScreenWidth() - rect.width;
+    }
 }
