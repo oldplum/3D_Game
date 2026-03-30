@@ -10,6 +10,7 @@ find_library(RAYLIB_LIBRARY raylib REQUIRED)
 
 add_executable(breakout_week2
     main.cpp
+    Game.cpp
     Ball.cpp
     Paddle.cpp
     Brick.cpp
