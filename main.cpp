@@ -83,7 +83,7 @@ void RebuildBricks(std::vector<Brick>& bricks, const LevelData& levelData) {
 
 // 道具掉落逻辑
 void TryDropPowerUp(std::vector<PowerUp>& powerups, Vector2 brickPos) {
-    if (rand() % 100 < 30) {  // 30% 概率
+    if (rand() % 100 < 45) {  // 45% 概率
         PowerUpType types[] = {PADDLE_EXPAND, BALL_SLOW, BALL_PIERCE, MULTI_BALL, SLOW_FIELD};
         Vector2 pos = {brickPos.x + 40, brickPos.y + 15};
         powerups.emplace_back(pos, types[rand() % 5]);
