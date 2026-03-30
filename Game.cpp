@@ -1,13 +1,33 @@
 #include "Game.h"
+#include <nlohmann/json.hpp>
 #include "raylib.h"
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
 
+using json = nlohmann::json;
+
 Game::Game()
         : gameState(GameState::MENU),
             stateBeforeLeaderboard(GameState::MENU),
+    screenWidth(800),
+    screenHeight(600),
+    windowTitle("Breakout"),
+    baseBallSpeed(2.0f),
+    ballRadius(10.0f),
+    paddleStartWidth(150.0f),
+    paddleHeight(20.0f),
+    paddleMoveSpeed(9.0f),
+    initialLives(3),
+    powerUpDropChance(45),
+    brickWidth(80.0f),
+    brickHeight(30.0f),
+    brickColsPerRow(4),
+    brickSpacingX(90.0f),
+    rowSpacing(50.0f),
+    brickStartX(60.0f),
+    brickStartY(80.0f),
       lives(3),
       score(0),
       level(1),
@@ -15,15 +35,67 @@ Game::Game()
       frameCounter(0),
       ballSpeedIncrease(1.0f),
       levelReadyCountdown(0),
-      ball({400, 300}, {2, 2}, 10),
+    ball({400, 300}, {2, 2}, ballRadius),
       extraBall({-1000, -1000}, {0, 0}, 10),
-      paddle(300, 550, 150, 20),
+    paddle(300, 550, paddleStartWidth, paddleHeight),
       paddleExpandTimer(0),
       ballSlowTimer(0),
       pierceTimer(0),
       multiballActive(false) {}
 
+void Game::LoadConfig(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return;
+    }
+
+    try {
+        json config = json::parse(file);
+
+        if (config.contains("window")) {
+            const auto& window = config["window"];
+            screenWidth = window.value("width", screenWidth);
+            screenHeight = window.value("height", screenHeight);
+            windowTitle = window.value("title", windowTitle);
+        }
+
+        if (config.contains("ball")) {
+            const auto& ballConfig = config["ball"];
+            ballRadius = ballConfig.value("radius", ballRadius);
+            baseBallSpeed = ballConfig.value("baseSpeed", baseBallSpeed);
+        }
+
+        if (config.contains("paddle")) {
+            const auto& paddleConfig = config["paddle"];
+            paddleStartWidth = paddleConfig.value("width", paddleStartWidth);
+            paddleHeight = paddleConfig.value("height", paddleHeight);
+            paddleMoveSpeed = paddleConfig.value("speed", paddleMoveSpeed);
+        }
+
+        if (config.contains("bricks")) {
+            const auto& bricksConfig = config["bricks"];
+            brickWidth = bricksConfig.value("width", brickWidth);
+            brickHeight = bricksConfig.value("height", brickHeight);
+            brickColsPerRow = bricksConfig.value("cols", brickColsPerRow);
+            brickSpacingX = bricksConfig.value("spacingX", brickSpacingX);
+            rowSpacing = bricksConfig.value("spacingY", rowSpacing);
+            brickStartX = bricksConfig.value("startX", brickStartX);
+            brickStartY = bricksConfig.value("startY", brickStartY);
+        }
+
+        if (config.contains("game")) {
+            const auto& gameConfig = config["game"];
+            initialLives = gameConfig.value("initialLives", initialLives);
+            powerUpDropChance = gameConfig.value("powerUpDropChance", powerUpDropChance);
+        }
+    } catch (const std::exception&) {
+        // 配置解析失败时回退默认值，保持游戏可运行。
+    }
+}
+
 void Game::Init() {
+    LoadConfig("config.json");
+    InitWindow(screenWidth, screenHeight, windowTitle.c_str());
     SetTargetFPS(60);
     srand(static_cast<unsigned>(time(NULL)));
     leaderboard = LoadLeaderboard();
@@ -71,23 +143,23 @@ void Game::Draw() {
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
-    DrawRectangle(0, 0, 5, SCREEN_HEIGHT, GRAY);
-    DrawRectangle(SCREEN_WIDTH - 5, 0, 5, SCREEN_HEIGHT, GRAY);
-    DrawRectangle(0, 0, SCREEN_WIDTH, 5, GRAY);
-    DrawRectangle(0, SCREEN_HEIGHT - 5, SCREEN_WIDTH, 5, GRAY);
+    DrawRectangle(0, 0, 5, screenHeight, GRAY);
+    DrawRectangle(screenWidth - 5, 0, 5, screenHeight, GRAY);
+    DrawRectangle(0, 0, screenWidth, 5, GRAY);
+    DrawRectangle(0, screenHeight - 5, screenWidth, 5, GRAY);
 
     if (gameState == GameState::MENU) {
-        DrawText("BREAKOUT 2D", SCREEN_WIDTH / 2 - 150, 80, 60, DARKBLUE);
-        DrawText("Press SPACE to Start", SCREEN_WIDTH / 2 - 180, 250, 32, DARKGRAY);
-        DrawText("Press L to View Leaderboard", SCREEN_WIDTH / 2 - 200, 320, 24, DARKGRAY);
-        DrawText("Controls: <- -> to move paddle | P to pause", SCREEN_WIDTH / 2 - 250, 450, 20, GRAY);
+        DrawText("BREAKOUT 2D", screenWidth / 2 - 150, 80, 60, DARKBLUE);
+        DrawText("Press SPACE to Start", screenWidth / 2 - 180, 250, 32, DARKGRAY);
+        DrawText("Press L to View Leaderboard", screenWidth / 2 - 200, 320, 24, DARKGRAY);
+        DrawText("Controls: <- -> to move paddle | P to pause", screenWidth / 2 - 250, 450, 20, GRAY);
     } else if (gameState == GameState::LEADERBOARD) {
-        DrawText("TOP 10 SCORES", SCREEN_WIDTH / 2 - 150, 50, 40, DARKBLUE);
+        DrawText("TOP 10 SCORES", screenWidth / 2 - 150, 50, 40, DARKBLUE);
         for (size_t i = 0; i < leaderboard.size() && i < 10; i++) {
             DrawText(TextFormat("#%d: %d pts (Level %d)", i + 1, leaderboard[i].score, leaderboard[i].level),
                 100, 120 + i * 40, 24, DARKGRAY);
         }
-        DrawText("Press L to return", SCREEN_WIDTH / 2 - 150, 550, 20, GRAY);
+        DrawText("Press L to return", screenWidth / 2 - 150, screenHeight - 50, 20, GRAY);
     } else if (gameState == GameState::LEVEL_READY) {
         ball.Draw();
         paddle.Draw();
@@ -99,10 +171,10 @@ void Game::Draw() {
 
         int secondsLeft = (levelReadyCountdown + 59) / 60;
         if (secondsLeft > 0) {
-            DrawText("READY?", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 80, 50, RED);
-            DrawText(TextFormat("%d", secondsLeft), SCREEN_WIDTH / 2 - 30, SCREEN_HEIGHT / 2 + 50, 80, ORANGE);
+            DrawText("READY?", screenWidth / 2 - 100, screenHeight / 2 - 80, 50, RED);
+            DrawText(TextFormat("%d", secondsLeft), screenWidth / 2 - 30, screenHeight / 2 + 50, 80, ORANGE);
         } else {
-            DrawText("GO!", SCREEN_WIDTH / 2 - 50, SCREEN_HEIGHT / 2 - 40, 60, GREEN);
+            DrawText("GO!", screenWidth / 2 - 50, screenHeight / 2 - 40, 60, GREEN);
         }
     } else if (gameState == GameState::PLAYING) {
         ball.Draw();
@@ -124,19 +196,19 @@ void Game::Draw() {
         if (pierceTimer > 0) DrawText("PIERCE", 350, 520, 16, RED);
         if (multiballActive) DrawText("2 BALLS", 350, 520, 16, MAGENTA);
     } else if (gameState == GameState::GAMEOVER) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 200});
-        DrawText("GAME OVER", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2 - 60, 48, RED);
-        DrawText(TextFormat("Final Score: %d | Level: %d", score, level), SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2, 28, WHITE);
-        DrawText("Press R to return Menu", SCREEN_WIDTH / 2 - 170, SCREEN_HEIGHT / 2 + 100, 24, WHITE);
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 200});
+        DrawText("GAME OVER", screenWidth / 2 - 150, screenHeight / 2 - 60, 48, RED);
+        DrawText(TextFormat("Final Score: %d | Level: %d", score, level), screenWidth / 2 - 200, screenHeight / 2, 28, WHITE);
+        DrawText("Press R to return Menu", screenWidth / 2 - 170, screenHeight / 2 + 100, 24, WHITE);
     } else if (gameState == GameState::VICTORY) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 200});
-        DrawText("VICTORY", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2 - 60, 56, GREEN);
-        DrawText(TextFormat("Final Score: %d | Level: %d", score, level), SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2, 28, WHITE);
-        DrawText("Press R to return Menu", SCREEN_WIDTH / 2 - 170, SCREEN_HEIGHT / 2 + 100, 24, WHITE);
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 200});
+        DrawText("VICTORY", screenWidth / 2 - 120, screenHeight / 2 - 60, 56, GREEN);
+        DrawText(TextFormat("Final Score: %d | Level: %d", score, level), screenWidth / 2 - 200, screenHeight / 2, 28, WHITE);
+        DrawText("Press R to return Menu", screenWidth / 2 - 170, screenHeight / 2 + 100, 24, WHITE);
     } else if (gameState == GameState::PAUSED) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 150});
-        DrawText("PAUSED", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 30, 50, WHITE);
-        DrawText("Press P to Resume", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2 + 50, 24, WHITE);
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 150});
+        DrawText("PAUSED", screenWidth / 2 - 100, screenHeight / 2 - 30, 50, WHITE);
+        DrawText("Press P to Resume", screenWidth / 2 - 150, screenHeight / 2 + 50, 24, WHITE);
     }
 
     EndDrawing();
@@ -144,6 +216,7 @@ void Game::Draw() {
 
 void Game::Shutdown() {
     SaveLeaderboard();
+    CloseWindow();
 }
 
 Game::LevelData Game::InitializeLevel(int targetLevel) const {
@@ -155,10 +228,10 @@ Game::LevelData Game::InitializeLevel(int targetLevel) const {
     else if (targetLevel == 3) data.ballSpeedMultiplier = 2.0f;
     else data.ballSpeedMultiplier = 2.7f + (targetLevel - 4) * 0.5f;
 
-    if (targetLevel == 1) data.paddleWidth = 150;
-    else if (targetLevel == 2) data.paddleWidth = 120;
-    else if (targetLevel == 3) data.paddleWidth = 90;
-    else data.paddleWidth = 60;
+    if (targetLevel == 1) data.paddleWidth = paddleStartWidth;
+    else if (targetLevel == 2) data.paddleWidth = paddleStartWidth * 0.8f;
+    else if (targetLevel == 3) data.paddleWidth = paddleStartWidth * 0.6f;
+    else data.paddleWidth = paddleStartWidth * 0.4f;
 
     data.brickPattern.clear();
     if (targetLevel == 1) {
@@ -181,26 +254,18 @@ Game::LevelData Game::InitializeLevel(int targetLevel) const {
 
 void Game::RebuildBricks(const LevelData& levelData) {
     bricks.clear();
-    float brickWidth = 80;
-    float brickHeight = 30;
-    int colsPerRow = 4;
-    float brickSpacingX = 90;
-    float startX = 60;
-    float startY = 80;
-    float rowSpacing = 50;
-
     for (size_t i = 0; i < levelData.brickPattern.size(); i++) {
         int type = levelData.brickPattern[i];
-        int row = static_cast<int>(i) / colsPerRow;
-        int col = static_cast<int>(i) % colsPerRow;
-        bricks.emplace_back(startX + col * brickSpacingX, startY + row * rowSpacing, brickWidth, brickHeight, type);
+        int row = static_cast<int>(i) / brickColsPerRow;
+        int col = static_cast<int>(i) % brickColsPerRow;
+        bricks.emplace_back(brickStartX + col * brickSpacingX, brickStartY + row * rowSpacing, brickWidth, brickHeight, type);
     }
 }
 
 void Game::TryDropPowerUp(Vector2 brickPos) {
-    if (rand() % 100 < 45) {
+    if (rand() % 100 < powerUpDropChance) {
         PowerUpType types[] = {PADDLE_EXPAND, BALL_SLOW, BALL_PIERCE, MULTI_BALL, SLOW_FIELD};
-        Vector2 pos = {brickPos.x + 40, brickPos.y + 15};
+        Vector2 pos = {brickPos.x + brickWidth * 0.5f, brickPos.y + brickHeight * 0.5f};
         powerups.emplace_back(pos, types[rand() % 5]);
     }
 }
@@ -227,7 +292,7 @@ void Game::SaveLeaderboard() const {
 }
 
 void Game::StartNewRun() {
-    lives = 3;
+    lives = initialLives;
     score = 0;
     level = 1;
     combo = 0;
@@ -240,10 +305,11 @@ void Game::StartNewRun() {
     levelReadyCountdown = 180;
 
     LevelData currentLevel = InitializeLevel(level);
-    int randomX = 100 + rand() % 600;
-    int randomY = 150 + rand() % 150;
-    ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, 10);
-    paddle = Paddle(300, 550, currentLevel.paddleWidth, 20);
+    int randomXRange = std::max(1, screenWidth - 200);
+    int randomX = 100 + rand() % randomXRange;
+    int randomY = 120 + rand() % 180;
+    ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, ballRadius);
+    paddle = Paddle((screenWidth - currentLevel.paddleWidth) * 0.5f, screenHeight - 50.0f, currentLevel.paddleWidth, paddleHeight);
     RebuildBricks(currentLevel);
     powerups.clear();
     gameState = GameState::LEVEL_READY;
@@ -263,8 +329,8 @@ void Game::UpdateLevelReady() {
 
     if (levelReadyCountdown <= 0) {
         LevelData currentLevel = InitializeLevel(level);
-        ball.SetSpeed({2 * currentLevel.ballSpeedMultiplier * ballSpeedIncrease,
-                       2 * currentLevel.ballSpeedMultiplier * ballSpeedIncrease});
+        float levelBallSpeed = baseBallSpeed * currentLevel.ballSpeedMultiplier * ballSpeedIncrease;
+        ball.SetSpeed({levelBallSpeed, levelBallSpeed});
         gameState = GameState::PLAYING;
         frameCounter = 0;
     }
@@ -276,11 +342,11 @@ void Game::UpdatePlaying() {
     }
 
     ball.Move();
-    ball.BounceEdge(SCREEN_WIDTH, SCREEN_HEIGHT);
+    ball.BounceEdge(screenWidth, screenHeight);
 
     if (multiballActive) {
         extraBall.Move();
-        extraBall.BounceEdge(SCREEN_WIDTH, SCREEN_HEIGHT);
+        extraBall.BounceEdge(screenWidth, screenHeight);
     }
 
     for (auto& powerUp : powerups) {
@@ -293,8 +359,8 @@ void Game::UpdatePlaying() {
     if (ballSlowTimer > 0) ballSlowTimer--;
     if (pierceTimer > 0) pierceTimer--;
 
-    if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(9);
-    if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(9);
+    if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(paddleMoveSpeed);
+    if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(paddleMoveSpeed);
     if (IsKeyPressed(KEY_P)) gameState = GameState::PAUSED;
 
     CheckPaddleCollision(ball);
@@ -323,9 +389,10 @@ void Game::UpdatePlaying() {
                 if (leaderboard.size() > 10) leaderboard.pop_back();
                 SaveLeaderboard();
             } else {
-                int randomX = 100 + rand() % 600;
-                int randomY = 150 + rand() % 150;
-                ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, 10);
+                int randomXRange = std::max(1, screenWidth - 200);
+                int randomX = 100 + rand() % randomXRange;
+                int randomY = 120 + rand() % 180;
+                ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, ballRadius);
                 combo = 0;
                 levelReadyCountdown = 180;
                 gameState = GameState::LEVEL_READY;
@@ -408,7 +475,7 @@ void Game::CheckBrickCollision(Ball& targetBall) {
 }
 
 bool Game::CheckBottomCollision(const Ball& targetBall) const {
-    return targetBall.GetPosition().y + targetBall.GetRadius() >= SCREEN_HEIGHT;
+    return targetBall.GetPosition().y + targetBall.GetRadius() >= screenHeight;
 }
 
 void Game::HandlePowerUpCatch(PowerUp& powerUp) {

@@ -5,6 +5,7 @@
 #include "Brick.h"
 #include "Paddle.h"
 #include "PowerUp.h"
+#include <string>
 #include <vector>
 
 class Game {
@@ -39,11 +40,30 @@ private:
         int level;
     };
 
-    static const int SCREEN_WIDTH = 800;
-    static const int SCREEN_HEIGHT = 600;
+    void LoadConfig(const std::string& path);
 
     GameState gameState;
     GameState stateBeforeLeaderboard;
+    int screenWidth;
+    int screenHeight;
+    std::string windowTitle;
+
+    float baseBallSpeed;
+    float ballRadius;
+    float paddleStartWidth;
+    float paddleHeight;
+    float paddleMoveSpeed;
+    int initialLives;
+    int powerUpDropChance;
+
+    float brickWidth;
+    float brickHeight;
+    int brickColsPerRow;
+    float brickSpacingX;
+    float rowSpacing;
+    float brickStartX;
+    float brickStartY;
+
     int lives;
     int score;
     int level;

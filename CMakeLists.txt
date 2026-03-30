@@ -1,10 +1,18 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 project(breakout_week2)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 enable_testing()
+
+include(FetchContent)
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 find_library(RAYLIB_LIBRARY raylib REQUIRED)
 
@@ -22,6 +30,7 @@ set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)
 target_link_libraries(breakout_week2
     PRIVATE
     ${RAYLIB_LIBRARY}
+    nlohmann_json::nlohmann_json
     GL
     m
     pthread

@@ -1,0 +1,29 @@
+{
+  "window": {
+    "width": 800,
+    "height": 600,
+    "title": "Breakout"
+  },
+  "ball": {
+    "radius": 10,
+    "baseSpeed": 2.0
+  },
+  "paddle": {
+    "width": 150,
+    "height": 20,
+    "speed": 9
+  },
+  "bricks": {
+    "cols": 4,
+    "width": 80,
+    "height": 30,
+    "spacingX": 90,
+    "spacingY": 50,
+    "startX": 60,
+    "startY": 80
+  },
+  "game": {
+    "initialLives": 3,
+    "powerUpDropChance": 45
+  }
+}
