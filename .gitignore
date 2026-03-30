@@ -1,7 +1,6 @@
 /build/
 /output/
 /.vscode/
-/tests/
 
 # CMake/g++ generated executables in repo root
 /game

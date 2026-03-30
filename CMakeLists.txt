@@ -41,6 +41,13 @@ target_link_libraries(breakout_week2
 
 add_executable(collision_test
     tests/collision_test.cpp
+    Ball.cpp
+    Brick.cpp
+)
+
+target_include_directories(collision_test
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(collision_test
