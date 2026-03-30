@@ -17,7 +17,15 @@ public:
     void Shutdown();
 
 private:
-    enum GameState { MENU, PLAYING, GAME_OVER, PAUSED, LEADERBOARD, LEVEL_READY };
+    enum class GameState {
+        MENU,
+        PLAYING,
+        PAUSED,
+        GAMEOVER,
+        VICTORY,
+        LEADERBOARD,
+        LEVEL_READY
+    };
 
     struct LevelData {
         int level;
@@ -35,6 +43,7 @@ private:
     static const int SCREEN_HEIGHT = 600;
 
     GameState gameState;
+    GameState stateBeforeLeaderboard;
     int lives;
     int score;
     int level;
@@ -68,6 +77,8 @@ private:
     void UpdateLevelReady();
     void UpdatePlaying();
     void UpdatePaused();
+    void UpdateGameOver();
+    void UpdateVictory();
 
     void CheckPaddleCollision(Ball& targetBall);
     void CheckBrickCollision(Ball& targetBall);

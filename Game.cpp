@@ -6,7 +6,8 @@
 #include <fstream>
 
 Game::Game()
-    : gameState(MENU),
+        : gameState(GameState::MENU),
+            stateBeforeLeaderboard(GameState::MENU),
       lives(3),
       score(0),
       level(1),
@@ -31,11 +32,39 @@ void Game::Init() {
 void Game::Update() {
     frameCounter++;
 
-    if (gameState == MENU) UpdateMenu();
-    if (gameState == LEADERBOARD) UpdateLeaderboard();
-    if (gameState == LEVEL_READY) UpdateLevelReady();
-    if (gameState == PLAYING) UpdatePlaying();
-    if (gameState == PAUSED) UpdatePaused();
+    if (IsKeyPressed(KEY_L)) {
+        if (gameState == GameState::LEADERBOARD) {
+            gameState = stateBeforeLeaderboard;
+        } else {
+            stateBeforeLeaderboard = gameState;
+            gameState = GameState::LEADERBOARD;
+        }
+        return;
+    }
+
+    switch (gameState) {
+        case GameState::MENU:
+            UpdateMenu();
+            break;
+        case GameState::PLAYING:
+            UpdatePlaying();
+            break;
+        case GameState::PAUSED:
+            UpdatePaused();
+            break;
+        case GameState::GAMEOVER:
+            UpdateGameOver();
+            break;
+        case GameState::VICTORY:
+            UpdateVictory();
+            break;
+        case GameState::LEADERBOARD:
+            UpdateLeaderboard();
+            break;
+        case GameState::LEVEL_READY:
+            UpdateLevelReady();
+            break;
+    }
 }
 
 void Game::Draw() {
@@ -47,19 +76,19 @@ void Game::Draw() {
     DrawRectangle(0, 0, SCREEN_WIDTH, 5, GRAY);
     DrawRectangle(0, SCREEN_HEIGHT - 5, SCREEN_WIDTH, 5, GRAY);
 
-    if (gameState == MENU) {
+    if (gameState == GameState::MENU) {
         DrawText("BREAKOUT 2D", SCREEN_WIDTH / 2 - 150, 80, 60, DARKBLUE);
         DrawText("Press SPACE to Start", SCREEN_WIDTH / 2 - 180, 250, 32, DARKGRAY);
         DrawText("Press L to View Leaderboard", SCREEN_WIDTH / 2 - 200, 320, 24, DARKGRAY);
         DrawText("Controls: <- -> to move paddle | P to pause", SCREEN_WIDTH / 2 - 250, 450, 20, GRAY);
-    } else if (gameState == LEADERBOARD) {
+    } else if (gameState == GameState::LEADERBOARD) {
         DrawText("TOP 10 SCORES", SCREEN_WIDTH / 2 - 150, 50, 40, DARKBLUE);
         for (size_t i = 0; i < leaderboard.size() && i < 10; i++) {
             DrawText(TextFormat("#%d: %d pts (Level %d)", i + 1, leaderboard[i].score, leaderboard[i].level),
                 100, 120 + i * 40, 24, DARKGRAY);
         }
-        DrawText("Press ESC to return", SCREEN_WIDTH / 2 - 150, 550, 20, GRAY);
-    } else if (gameState == LEVEL_READY) {
+        DrawText("Press L to return", SCREEN_WIDTH / 2 - 150, 550, 20, GRAY);
+    } else if (gameState == GameState::LEVEL_READY) {
         ball.Draw();
         paddle.Draw();
         for (auto& brick : bricks) brick.Draw();
@@ -75,7 +104,7 @@ void Game::Draw() {
         } else {
             DrawText("GO!", SCREEN_WIDTH / 2 - 50, SCREEN_HEIGHT / 2 - 40, 60, GREEN);
         }
-    } else if (gameState == PLAYING) {
+    } else if (gameState == GameState::PLAYING) {
         ball.Draw();
         if (multiballActive) extraBall.Draw();
         paddle.Draw();
@@ -94,16 +123,17 @@ void Game::Draw() {
         if (ballSlowTimer > 0) DrawText("SLOW", 350, 520, 16, YELLOW);
         if (pierceTimer > 0) DrawText("PIERCE", 350, 520, 16, RED);
         if (multiballActive) DrawText("2 BALLS", 350, 520, 16, MAGENTA);
-    } else if (gameState == GAME_OVER) {
+    } else if (gameState == GameState::GAMEOVER) {
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 200});
         DrawText("GAME OVER", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2 - 60, 48, RED);
         DrawText(TextFormat("Final Score: %d | Level: %d", score, level), SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2, 28, WHITE);
-        DrawText("Press R to Restart or ESC to Menu", SCREEN_WIDTH / 2 - 220, SCREEN_HEIGHT / 2 + 100, 24, WHITE);
-
-        if (IsKeyPressed(KEY_R)) {
-            gameState = MENU;
-        }
-    } else if (gameState == PAUSED) {
+        DrawText("Press R to return Menu", SCREEN_WIDTH / 2 - 170, SCREEN_HEIGHT / 2 + 100, 24, WHITE);
+    } else if (gameState == GameState::VICTORY) {
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 200});
+        DrawText("VICTORY", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2 - 60, 56, GREEN);
+        DrawText(TextFormat("Final Score: %d | Level: %d", score, level), SCREEN_WIDTH / 2 - 200, SCREEN_HEIGHT / 2, 28, WHITE);
+        DrawText("Press R to return Menu", SCREEN_WIDTH / 2 - 170, SCREEN_HEIGHT / 2 + 100, 24, WHITE);
+    } else if (gameState == GameState::PAUSED) {
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color{0, 0, 0, 150});
         DrawText("PAUSED", SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 30, 50, WHITE);
         DrawText("Press P to Resume", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2 + 50, 24, WHITE);
@@ -216,22 +246,16 @@ void Game::StartNewRun() {
     paddle = Paddle(300, 550, currentLevel.paddleWidth, 20);
     RebuildBricks(currentLevel);
     powerups.clear();
-    gameState = LEVEL_READY;
+    gameState = GameState::LEVEL_READY;
 }
 
 void Game::UpdateMenu() {
     if (IsKeyPressed(KEY_SPACE)) {
         StartNewRun();
     }
-    if (IsKeyPressed(KEY_L)) {
-        gameState = LEADERBOARD;
-    }
 }
 
 void Game::UpdateLeaderboard() {
-    if (IsKeyPressed(KEY_ESCAPE)) {
-        gameState = MENU;
-    }
 }
 
 void Game::UpdateLevelReady() {
@@ -241,7 +265,7 @@ void Game::UpdateLevelReady() {
         LevelData currentLevel = InitializeLevel(level);
         ball.SetSpeed({2 * currentLevel.ballSpeedMultiplier * ballSpeedIncrease,
                        2 * currentLevel.ballSpeedMultiplier * ballSpeedIncrease});
-        gameState = PLAYING;
+        gameState = GameState::PLAYING;
         frameCounter = 0;
     }
 }
@@ -271,7 +295,7 @@ void Game::UpdatePlaying() {
 
     if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(9);
     if (IsKeyDown(KEY_RIGHT)) paddle.MoveRight(9);
-    if (IsKeyPressed(KEY_P)) gameState = PAUSED;
+    if (IsKeyPressed(KEY_P)) gameState = GameState::PAUSED;
 
     CheckPaddleCollision(ball);
     if (multiballActive) CheckPaddleCollision(extraBall);
@@ -292,7 +316,7 @@ void Game::UpdatePlaying() {
         } else {
             lives--;
             if (lives <= 0) {
-                gameState = GAME_OVER;
+                gameState = GameState::GAMEOVER;
                 leaderboard.push_back({score, level});
                 std::sort(leaderboard.rbegin(), leaderboard.rend(),
                     [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
@@ -304,7 +328,7 @@ void Game::UpdatePlaying() {
                 ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, 10);
                 combo = 0;
                 levelReadyCountdown = 180;
-                gameState = LEVEL_READY;
+                gameState = GameState::LEVEL_READY;
             }
         }
     }
@@ -314,28 +338,29 @@ void Game::UpdatePlaying() {
     }
 
     if (AreAllBricksClear()) {
-        level++;
-        LevelData nextLevel = InitializeLevel(level);
-        int randomX = 100 + rand() % 600;
-        int randomY = 150 + rand() % 150;
-        ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, 10);
-        paddle = Paddle(300, 550, nextLevel.paddleWidth, 20);
-        RebuildBricks(nextLevel);
-        powerups.clear();
-        paddleExpandTimer = 0;
-        ballSlowTimer = 0;
-        pierceTimer = 0;
-        multiballActive = false;
-        paddle.ResetWidth();
-        ballSpeedIncrease = 1.0f;
-        combo = 0;
-        levelReadyCountdown = 180;
-        gameState = LEVEL_READY;
+        gameState = GameState::VICTORY;
+        leaderboard.push_back({score, level});
+        std::sort(leaderboard.rbegin(), leaderboard.rend(),
+            [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
+        if (leaderboard.size() > 10) leaderboard.pop_back();
+        SaveLeaderboard();
     }
 }
 
 void Game::UpdatePaused() {
-    if (IsKeyPressed(KEY_P)) gameState = PLAYING;
+    if (IsKeyPressed(KEY_P)) gameState = GameState::PLAYING;
+}
+
+void Game::UpdateGameOver() {
+    if (IsKeyPressed(KEY_R)) {
+        gameState = GameState::MENU;
+    }
+}
+
+void Game::UpdateVictory() {
+    if (IsKeyPressed(KEY_R)) {
+        gameState = GameState::MENU;
+    }
 }
 
 void Game::CheckPaddleCollision(Ball& targetBall) {
