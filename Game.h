@@ -40,6 +40,20 @@ private:
         int level;
     };
 
+    struct PowerUpSettings {
+        float paddleExpandExtraWidth = 40.0f;
+        int paddleExpandDurationFrames = 300;
+        float paddleExpandDropRate = 0.30f;
+
+        int multiBallExtraBalls = 1;
+        int multiBallDurationFrames = 0;
+        float multiBallDropRate = 0.20f;
+
+        float ballSlowSpeedFactor = 0.70f;
+        int ballSlowDurationFrames = 300;
+        float ballSlowDropRate = 0.25f;
+    };
+
     void LoadConfig(const std::string& path);
 
     GameState gameState;
@@ -71,6 +85,7 @@ private:
     int frameCounter;
     float ballSpeedIncrease;
     int levelReadyCountdown;
+    PowerUpSettings powerUpSettings;
 
     Ball ball;
     Ball extraBall;
@@ -83,6 +98,7 @@ private:
     int ballSlowTimer;
     int pierceTimer;
     bool multiballActive;
+    bool ballSlowActive;
 
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);

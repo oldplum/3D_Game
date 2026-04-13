@@ -35,13 +35,15 @@ Game::Game()
       frameCounter(0),
       ballSpeedIncrease(1.0f),
       levelReadyCountdown(0),
+            powerUpSettings(),
     ball({400, 300}, {2, 2}, ballRadius),
       extraBall({-1000, -1000}, {0, 0}, 10),
     paddle(300, 550, paddleStartWidth, paddleHeight),
       paddleExpandTimer(0),
       ballSlowTimer(0),
       pierceTimer(0),
-      multiballActive(false) {}
+            multiballActive(false),
+            ballSlowActive(false) {}
 
 void Game::LoadConfig(const std::string& path) {
     std::ifstream file(path);
@@ -87,6 +89,31 @@ void Game::LoadConfig(const std::string& path) {
             const auto& gameConfig = config["game"];
             initialLives = gameConfig.value("initialLives", initialLives);
             powerUpDropChance = gameConfig.value("powerUpDropChance", powerUpDropChance);
+        }
+
+        if (config.contains("powerups")) {
+            const auto& powerupsConfig = config["powerups"];
+
+            if (powerupsConfig.contains("paddle_extend")) {
+                const auto& paddleExtend = powerupsConfig["paddle_extend"];
+                powerUpSettings.paddleExpandExtraWidth = paddleExtend.value("extra_width", powerUpSettings.paddleExpandExtraWidth);
+                powerUpSettings.paddleExpandDurationFrames = paddleExtend.value("duration", powerUpSettings.paddleExpandDurationFrames / 60) * 60;
+                powerUpSettings.paddleExpandDropRate = paddleExtend.value("drop_rate", powerUpSettings.paddleExpandDropRate);
+            }
+
+            if (powerupsConfig.contains("multi_ball")) {
+                const auto& multiBall = powerupsConfig["multi_ball"];
+                powerUpSettings.multiBallExtraBalls = multiBall.value("extra_balls", powerUpSettings.multiBallExtraBalls);
+                powerUpSettings.multiBallDurationFrames = multiBall.value("duration", powerUpSettings.multiBallDurationFrames / 60) * 60;
+                powerUpSettings.multiBallDropRate = multiBall.value("drop_rate", powerUpSettings.multiBallDropRate);
+            }
+
+            if (powerupsConfig.contains("slow_ball")) {
+                const auto& slowBall = powerupsConfig["slow_ball"];
+                powerUpSettings.ballSlowSpeedFactor = slowBall.value("speed_factor", powerUpSettings.ballSlowSpeedFactor);
+                powerUpSettings.ballSlowDurationFrames = slowBall.value("duration", powerUpSettings.ballSlowDurationFrames / 60) * 60;
+                powerUpSettings.ballSlowDropRate = slowBall.value("drop_rate", powerUpSettings.ballSlowDropRate);
+            }
         }
     } catch (const std::exception&) {
         // 配置解析失败时回退默认值，保持游戏可运行。
@@ -264,9 +291,30 @@ void Game::RebuildBricks(const LevelData& levelData) {
 
 void Game::TryDropPowerUp(Vector2 brickPos) {
     if (rand() % 100 < powerUpDropChance) {
-        PowerUpType types[] = {PADDLE_EXPAND, BALL_SLOW, BALL_PIERCE, MULTI_BALL, SLOW_FIELD};
+        float weights[3] = {
+            std::max(0.0f, powerUpSettings.paddleExpandDropRate),
+            std::max(0.0f, powerUpSettings.multiBallDropRate),
+            std::max(0.0f, powerUpSettings.ballSlowDropRate)
+        };
+        float totalWeight = weights[0] + weights[1] + weights[2];
+
+        if (totalWeight <= 0.0f) {
+            return;
+        }
+
+        float randomValue = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * totalWeight;
+        PowerUpType selectedType = PADDLE_EXPAND;
+
+        if (randomValue < weights[0]) {
+            selectedType = PADDLE_EXPAND;
+        } else if (randomValue < weights[0] + weights[1]) {
+            selectedType = MULTI_BALL;
+        } else {
+            selectedType = BALL_SLOW;
+        }
+
         Vector2 pos = {brickPos.x + brickWidth * 0.5f, brickPos.y + brickHeight * 0.5f};
-        powerups.emplace_back(pos, types[rand() % 5]);
+        powerups.emplace_back(pos, selectedType);
     }
 }
 
@@ -302,6 +350,7 @@ void Game::StartNewRun() {
     ballSlowTimer = 0;
     pierceTimer = 0;
     multiballActive = false;
+    ballSlowActive = false;
     levelReadyCountdown = 180;
 
     LevelData currentLevel = InitializeLevel(level);
@@ -355,8 +404,32 @@ void Game::UpdatePlaying() {
     powerups.erase(std::remove_if(powerups.begin(), powerups.end(),
         [](const PowerUp& p) { return !p.IsActive(); }), powerups.end());
 
-    if (paddleExpandTimer > 0) paddleExpandTimer--;
-    if (ballSlowTimer > 0) ballSlowTimer--;
+    if (paddleExpandTimer > 0) {
+        paddleExpandTimer--;
+        if (paddleExpandTimer == 0) {
+            paddle.ResetWidth();
+        }
+    }
+
+    if (ballSlowTimer > 0) {
+        ballSlowTimer--;
+        if (ballSlowTimer == 0 && ballSlowActive && powerUpSettings.ballSlowSpeedFactor > 0.0f) {
+            Vector2 speed = ball.GetSpeed();
+            speed.x /= powerUpSettings.ballSlowSpeedFactor;
+            speed.y /= powerUpSettings.ballSlowSpeedFactor;
+            ball.SetSpeed(speed);
+
+            if (multiballActive) {
+                Vector2 extraSpeed = extraBall.GetSpeed();
+                extraSpeed.x /= powerUpSettings.ballSlowSpeedFactor;
+                extraSpeed.y /= powerUpSettings.ballSlowSpeedFactor;
+                extraBall.SetSpeed(extraSpeed);
+            }
+
+            ballSlowActive = false;
+        }
+    }
+
     if (pierceTimer > 0) pierceTimer--;
 
     if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(paddleMoveSpeed);
@@ -481,12 +554,27 @@ bool Game::CheckBottomCollision(const Ball& targetBall) const {
 void Game::HandlePowerUpCatch(PowerUp& powerUp) {
     switch (powerUp.GetType()) {
         case PADDLE_EXPAND:
-            paddle.SetWidth(paddle.GetWidth() + 50);
-            paddleExpandTimer = 300;
+            if (paddleExpandTimer == 0) {
+                paddle.SetWidth(paddle.GetWidth() + powerUpSettings.paddleExpandExtraWidth);
+            }
+            paddleExpandTimer = powerUpSettings.paddleExpandDurationFrames;
             break;
         case BALL_SLOW:
-            ballSpeedIncrease = std::max(0.5f, ballSpeedIncrease - 0.3f);
-            ballSlowTimer = 300;
+            if (!ballSlowActive && powerUpSettings.ballSlowSpeedFactor > 0.0f) {
+                Vector2 speed = ball.GetSpeed();
+                speed.x *= powerUpSettings.ballSlowSpeedFactor;
+                speed.y *= powerUpSettings.ballSlowSpeedFactor;
+                ball.SetSpeed(speed);
+
+                if (multiballActive) {
+                    Vector2 extraSpeed = extraBall.GetSpeed();
+                    extraSpeed.x *= powerUpSettings.ballSlowSpeedFactor;
+                    extraSpeed.y *= powerUpSettings.ballSlowSpeedFactor;
+                    extraBall.SetSpeed(extraSpeed);
+                }
+                ballSlowActive = true;
+            }
+            ballSlowTimer = powerUpSettings.ballSlowDurationFrames;
             score += 50;
             break;
         case BALL_PIERCE:
@@ -494,7 +582,7 @@ void Game::HandlePowerUpCatch(PowerUp& powerUp) {
             score += 75;
             break;
         case MULTI_BALL:
-            if (!multiballActive) {
+            if (!multiballActive && powerUpSettings.multiBallExtraBalls > 0) {
                 multiballActive = true;
                 extraBall = ball;
                 extraBall.SetSpeed({-ball.GetSpeed().x, ball.GetSpeed().y});
