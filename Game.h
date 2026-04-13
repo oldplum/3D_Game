@@ -17,6 +17,12 @@ public:
     void Draw();
     void Shutdown();
 
+    void ApplyPaddleExpandEffect(float extraWidth, int durationFrames, int scoreBonus);
+    void ApplyBallSlowEffect(float slowAmount, int durationFrames, int scoreBonus);
+    void ApplyBallPierceEffect(int durationFrames, int scoreBonus);
+    void ApplyMultiBallEffect(int scoreBonus);
+    void ApplySlowFieldEffect(float factor, int scoreBonus);
+
 private:
     enum class GameState {
         MENU,

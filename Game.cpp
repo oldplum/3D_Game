@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "PowerUpEffect.h"
 #include <nlohmann/json.hpp>
 #include "raylib.h"
 #include <algorithm>
@@ -478,33 +479,41 @@ bool Game::CheckBottomCollision(const Ball& targetBall) const {
     return targetBall.GetPosition().y + targetBall.GetRadius() >= screenHeight;
 }
 
+void Game::ApplyPaddleExpandEffect(float extraWidth, int durationFrames, int scoreBonus) {
+    paddle.SetWidth(paddle.GetWidth() + extraWidth);
+    paddleExpandTimer = durationFrames;
+    score += scoreBonus;
+}
+
+void Game::ApplyBallSlowEffect(float slowAmount, int durationFrames, int scoreBonus) {
+    ballSpeedIncrease = std::max(0.5f, ballSpeedIncrease - slowAmount);
+    ballSlowTimer = durationFrames;
+    score += scoreBonus;
+}
+
+void Game::ApplyBallPierceEffect(int durationFrames, int scoreBonus) {
+    pierceTimer = durationFrames;
+    score += scoreBonus;
+}
+
+void Game::ApplyMultiBallEffect(int scoreBonus) {
+    if (!multiballActive) {
+        multiballActive = true;
+        extraBall = ball;
+        extraBall.SetSpeed({-ball.GetSpeed().x, ball.GetSpeed().y});
+    }
+    score += scoreBonus;
+}
+
+void Game::ApplySlowFieldEffect(float factor, int scoreBonus) {
+    ballSpeedIncrease *= factor;
+    score += scoreBonus;
+}
+
 void Game::HandlePowerUpCatch(PowerUp& powerUp) {
-    switch (powerUp.GetType()) {
-        case PADDLE_EXPAND:
-            paddle.SetWidth(paddle.GetWidth() + 50);
-            paddleExpandTimer = 300;
-            break;
-        case BALL_SLOW:
-            ballSpeedIncrease = std::max(0.5f, ballSpeedIncrease - 0.3f);
-            ballSlowTimer = 300;
-            score += 50;
-            break;
-        case BALL_PIERCE:
-            pierceTimer = 180;
-            score += 75;
-            break;
-        case MULTI_BALL:
-            if (!multiballActive) {
-                multiballActive = true;
-                extraBall = ball;
-                extraBall.SetSpeed({-ball.GetSpeed().x, ball.GetSpeed().y});
-            }
-            score += 100;
-            break;
-        case SLOW_FIELD:
-            ballSpeedIncrease *= 0.7f;
-            score += 60;
-            break;
+    std::unique_ptr<PowerUpEffect> effect = CreatePowerUpEffect(powerUp.GetType());
+    if (effect) {
+        effect->Apply(*this);
     }
 }
 
