@@ -25,5 +25,22 @@
   "game": {
     "initialLives": 3,
     "powerUpDropChance": 45
+  },
+  "powerups": {
+    "paddle_extend": {
+      "extra_width": 40,
+      "duration": 5,
+      "drop_rate": 0.3
+    },
+    "multi_ball": {
+      "extra_balls": 1,
+      "duration": 0,
+      "drop_rate": 0.2
+    },
+    "slow_ball": {
+      "speed_factor": 0.7,
+      "duration": 5,
+      "drop_rate": 0.25
+    }
   }
 }
