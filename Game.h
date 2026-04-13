@@ -17,6 +17,18 @@ public:
     void Draw();
     void Shutdown();
 
+    void ApplyPaddleExpandEffect(float extraWidth, int durationFrames, int scoreBonus);
+    void ApplyBallSlowEffect(float speedFactor, int durationFrames, int scoreBonus);
+    void ApplyBallPierceEffect(int durationFrames, int scoreBonus);
+    void ApplyMultiBallEffect(int scoreBonus);
+    void ApplySlowFieldEffect(float factor, int scoreBonus);
+
+    float GetPaddleExpandExtraWidth() const { return powerUpSettings.paddleExpandExtraWidth; }
+    int GetPaddleExpandDurationFrames() const { return powerUpSettings.paddleExpandDurationFrames; }
+    float GetBallSlowSpeedFactor() const { return powerUpSettings.ballSlowSpeedFactor; }
+    int GetBallSlowDurationFrames() const { return powerUpSettings.ballSlowDurationFrames; }
+    int GetMultiBallExtraBalls() const { return powerUpSettings.multiBallExtraBalls; }
+
 private:
     enum class GameState {
         MENU,

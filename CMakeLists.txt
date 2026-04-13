@@ -23,6 +23,7 @@ add_executable(breakout_week2
     Paddle.cpp
     Brick.cpp
     PowerUp.cpp
+    PowerUpEffect.cpp
 )
 
 set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)

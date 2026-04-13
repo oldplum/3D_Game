@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "PowerUpEffect.h"
 #include <nlohmann/json.hpp>
 #include "raylib.h"
 #include <algorithm>
@@ -621,48 +622,57 @@ bool Game::CheckBottomCollision(const Ball& targetBall) const {
     return targetBall.GetPosition().y + targetBall.GetRadius() >= screenHeight;
 }
 
-void Game::HandlePowerUpCatch(PowerUp& powerUp) {
-    switch (powerUp.GetType()) {
-        case PADDLE_EXPAND:
-            if (paddleExpandTimer == 0) {
-                paddle.SetWidth(paddle.GetWidth() + powerUpSettings.paddleExpandExtraWidth);
-            }
-            paddleExpandTimer = powerUpSettings.paddleExpandDurationFrames;
-            break;
-        case BALL_SLOW:
-            if (!ballSlowActive && powerUpSettings.ballSlowSpeedFactor > 0.0f) {
-                Vector2 speed = ball.GetSpeed();
-                speed.x *= powerUpSettings.ballSlowSpeedFactor;
-                speed.y *= powerUpSettings.ballSlowSpeedFactor;
-                ball.SetSpeed(speed);
+void Game::ApplyPaddleExpandEffect(float extraWidth, int durationFrames, int scoreBonus) {
+    if (paddleExpandTimer == 0) {
+        paddle.SetWidth(paddle.GetWidth() + extraWidth);
+    }
+    paddleExpandTimer = durationFrames;
+    score += scoreBonus;
+}
 
-                if (multiballActive) {
-                    Vector2 extraSpeed = extraBall.GetSpeed();
-                    extraSpeed.x *= powerUpSettings.ballSlowSpeedFactor;
-                    extraSpeed.y *= powerUpSettings.ballSlowSpeedFactor;
-                    extraBall.SetSpeed(extraSpeed);
-                }
-                ballSlowActive = true;
-            }
-            ballSlowTimer = powerUpSettings.ballSlowDurationFrames;
-            score += 50;
-            break;
-        case BALL_PIERCE:
-            pierceTimer = 180;
-            score += 75;
-            break;
-        case MULTI_BALL:
-            if (!multiballActive && powerUpSettings.multiBallExtraBalls > 0) {
-                multiballActive = true;
-                extraBall = ball;
-                extraBall.SetSpeed({-ball.GetSpeed().x, ball.GetSpeed().y});
-            }
-            score += 100;
-            break;
-        case SLOW_FIELD:
-            ballSpeedIncrease *= 0.7f;
-            score += 60;
-            break;
+void Game::ApplyBallSlowEffect(float speedFactor, int durationFrames, int scoreBonus) {
+    if (!ballSlowActive && speedFactor > 0.0f) {
+        Vector2 speed = ball.GetSpeed();
+        speed.x *= speedFactor;
+        speed.y *= speedFactor;
+        ball.SetSpeed(speed);
+
+        if (multiballActive) {
+            Vector2 extraSpeed = extraBall.GetSpeed();
+            extraSpeed.x *= speedFactor;
+            extraSpeed.y *= speedFactor;
+            extraBall.SetSpeed(extraSpeed);
+        }
+
+        ballSlowActive = true;
+    }
+    ballSlowTimer = durationFrames;
+    score += scoreBonus;
+}
+
+void Game::ApplyBallPierceEffect(int durationFrames, int scoreBonus) {
+    pierceTimer = durationFrames;
+    score += scoreBonus;
+}
+
+void Game::ApplyMultiBallEffect(int scoreBonus) {
+    if (!multiballActive && powerUpSettings.multiBallExtraBalls > 0) {
+        multiballActive = true;
+        extraBall = ball;
+        extraBall.SetSpeed({-ball.GetSpeed().x, ball.GetSpeed().y});
+    }
+    score += scoreBonus;
+}
+
+void Game::ApplySlowFieldEffect(float factor, int scoreBonus) {
+    ballSpeedIncrease *= factor;
+    score += scoreBonus;
+}
+
+void Game::HandlePowerUpCatch(PowerUp& powerUp) {
+    std::unique_ptr<PowerUpEffect> effect = CreatePowerUpEffect(powerUp.GetType());
+    if (effect) {
+        effect->Apply(*this);
     }
 }
 
