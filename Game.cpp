@@ -44,7 +44,8 @@ Game::Game()
       ballSlowTimer(0),
       pierceTimer(0),
             multiballActive(false),
-            ballSlowActive(false) {}
+                        ballSlowActive(false),
+                        droppedPowerUpThisLevel(false) {}
 
 void Game::LoadConfig(const std::string& path) {
     std::ifstream file(path);
@@ -292,7 +293,12 @@ void Game::RebuildBricks(const LevelData& levelData) {
 }
 
 void Game::TryDropPowerUp(Vector2 brickPos) {
-    if (rand() % 100 < powerUpDropChance) {
+    bool shouldDrop = !droppedPowerUpThisLevel;
+    if (!shouldDrop) {
+        shouldDrop = (rand() % 100 < powerUpDropChance);
+    }
+
+    if (shouldDrop) {
         float weights[3] = {
             std::max(0.0f, powerUpSettings.paddleExpandDropRate),
             std::max(0.0f, powerUpSettings.multiBallDropRate),
@@ -317,6 +323,7 @@ void Game::TryDropPowerUp(Vector2 brickPos) {
 
         Vector2 pos = {brickPos.x + brickWidth * 0.5f, brickPos.y + brickHeight * 0.5f};
         powerups.emplace_back(pos, selectedType);
+        droppedPowerUpThisLevel = true;
     }
 }
 
@@ -353,6 +360,7 @@ void Game::StartNewRun() {
     pierceTimer = 0;
     multiballActive = false;
     ballSlowActive = false;
+    droppedPowerUpThisLevel = false;
     levelReadyCountdown = 180;
 
     LevelData currentLevel = InitializeLevel(level);
@@ -482,12 +490,41 @@ void Game::UpdatePlaying() {
     }
 
     if (AreAllBricksClear()) {
-        gameState = GameState::VICTORY;
-        leaderboard.push_back({score, level});
-        std::sort(leaderboard.rbegin(), leaderboard.rend(),
-            [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
-        if (leaderboard.size() > 10) leaderboard.pop_back();
-        SaveLeaderboard();
+        const int maxPlayableLevel = 3;
+
+        if (level < maxPlayableLevel) {
+            level++;
+            combo = 0;
+            levelReadyCountdown = 180;
+
+            paddleExpandTimer = 0;
+            ballSlowTimer = 0;
+            pierceTimer = 0;
+            multiballActive = false;
+            ballSlowActive = false;
+            droppedPowerUpThisLevel = false;
+
+            paddle.ResetWidth();
+            powerups.clear();
+            particles.clear();
+
+            LevelData nextLevel = InitializeLevel(level);
+            int randomXRange = std::max(1, screenWidth - 200);
+            int randomX = 100 + rand() % randomXRange;
+            int randomY = 120 + rand() % 180;
+            ball = Ball({static_cast<float>(randomX), static_cast<float>(randomY)}, {0, 0}, ballRadius);
+            paddle = Paddle((screenWidth - nextLevel.paddleWidth) * 0.5f, screenHeight - 50.0f, nextLevel.paddleWidth, paddleHeight);
+            RebuildBricks(nextLevel);
+
+            gameState = GameState::LEVEL_READY;
+        } else {
+            gameState = GameState::VICTORY;
+            leaderboard.push_back({score, level});
+            std::sort(leaderboard.rbegin(), leaderboard.rend(),
+                [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
+            if (leaderboard.size() > 10) leaderboard.pop_back();
+            SaveLeaderboard();
+        }
     }
 }
 

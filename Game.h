@@ -122,6 +122,7 @@ private:
     int pierceTimer;
     bool multiballActive;
     bool ballSlowActive;
+    bool droppedPowerUpThisLevel;
 
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);
