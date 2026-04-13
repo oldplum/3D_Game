@@ -208,6 +208,7 @@ void Game::Draw() {
         if (multiballActive) extraBall.Draw();
         paddle.Draw();
         for (auto& brick : bricks) brick.Draw();
+        DrawParticles();
         for (auto& powerUp : powerups) powerUp.Draw();
 
         DrawText(TextFormat("Score: %d", score), 12, 10, 20, DARKGRAY);
@@ -361,6 +362,7 @@ void Game::StartNewRun() {
     paddle = Paddle((screenWidth - currentLevel.paddleWidth) * 0.5f, screenHeight - 50.0f, currentLevel.paddleWidth, paddleHeight);
     RebuildBricks(currentLevel);
     powerups.clear();
+    particles.clear();
     gameState = GameState::LEVEL_READY;
 }
 
@@ -404,6 +406,8 @@ void Game::UpdatePlaying() {
     powerups.erase(std::remove_if(powerups.begin(), powerups.end(),
         [](const PowerUp& p) { return !p.IsActive(); }), powerups.end());
 
+    UpdateParticles();
+
     if (paddleExpandTimer > 0) {
         paddleExpandTimer--;
         if (paddleExpandTimer == 0) {
@@ -429,7 +433,6 @@ void Game::UpdatePlaying() {
             ballSlowActive = false;
         }
     }
-
     if (pierceTimer > 0) pierceTimer--;
 
     if (IsKeyDown(KEY_LEFT)) paddle.MoveLeft(paddleMoveSpeed);
@@ -525,6 +528,7 @@ void Game::CheckBrickCollision(Ball& targetBall) {
         if (CheckCollisionCircleRec(targetBall.GetPosition(), targetBall.GetRadius(), brick.GetRect())) {
             if (pierceTimer == 0) {
                 if (brick.Hit()) {
+                    SpawnBrickParticles(brick.GetRect(), GetBrickColor(brick.GetType()));
                     int basePoints = brick.GetPoints();
                     int multiplier = 1 + (combo / 5);
                     score += basePoints * multiplier;
@@ -536,6 +540,7 @@ void Game::CheckBrickCollision(Ball& targetBall) {
                 break;
             } else {
                 if (brick.Hit()) {
+                    SpawnBrickParticles(brick.GetRect(), GetBrickColor(brick.GetType()));
                     score += brick.GetPoints();
                     combo++;
                     TryDropPowerUp({brick.GetRect().x, brick.GetRect().y});
@@ -545,6 +550,71 @@ void Game::CheckBrickCollision(Ball& targetBall) {
     }
 
     if (!hitBrick) combo = 0;
+}
+
+void Game::SpawnBrickParticles(const Rectangle& brickRect, Color brickColor) {
+    const int particleCount = 10;
+    for (int i = 0; i < particleCount; i++) {
+        Particle particle;
+
+        float randomX = static_cast<float>(rand() % static_cast<int>(std::max(1.0f, brickRect.width)));
+        float randomY = static_cast<float>(rand() % static_cast<int>(std::max(1.0f, brickRect.height)));
+        particle.position = {brickRect.x + randomX, brickRect.y + randomY};
+
+        float vx = (static_cast<float>(rand() % 100) - 50.0f) / 14.0f;
+        float vy = (static_cast<float>(rand() % 100) - 50.0f) / 16.0f;
+        particle.velocity = {vx, vy};
+
+        particle.color = brickColor;
+        particle.life = 30.0f + static_cast<float>(rand() % 12);
+        particle.maxLife = particle.life;
+        particle.size = 2.0f + static_cast<float>(rand() % 3);
+        particle.active = true;
+        particles.push_back(particle);
+    }
+}
+
+void Game::UpdateParticles() {
+    for (auto& particle : particles) {
+        if (!particle.active) {
+            continue;
+        }
+
+        particle.position.x += particle.velocity.x;
+        particle.position.y += particle.velocity.y;
+        particle.velocity.y += 0.08f;
+        particle.life -= 1.0f;
+        if (particle.life <= 0.0f) {
+            particle.active = false;
+        }
+    }
+
+    particles.erase(std::remove_if(particles.begin(), particles.end(),
+        [](const Particle& particle) { return !particle.active; }), particles.end());
+}
+
+void Game::DrawParticles() {
+    for (const auto& particle : particles) {
+        float alphaRatio = 0.0f;
+        if (particle.maxLife > 0.0f) {
+            alphaRatio = particle.life / particle.maxLife;
+        }
+        alphaRatio = std::max(0.0f, std::min(1.0f, alphaRatio));
+
+        Color fadedColor = particle.color;
+        fadedColor.a = static_cast<unsigned char>(255.0f * alphaRatio);
+        DrawCircleV(particle.position, particle.size, fadedColor);
+    }
+}
+
+Color Game::GetBrickColor(int brickType) const {
+    if (brickType == 1) {
+        return GREEN;
+    }
+    if (brickType == 2) {
+        return BLUE;
+    }
+    return GOLD;
 }
 
 bool Game::CheckBottomCollision(const Ball& targetBall) const {

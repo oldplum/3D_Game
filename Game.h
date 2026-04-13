@@ -54,6 +54,16 @@ private:
         float ballSlowDropRate = 0.25f;
     };
 
+    struct Particle {
+        Vector2 position;
+        Vector2 velocity;
+        Color color;
+        float life;
+        float maxLife;
+        float size;
+        bool active;
+    };
+
     void LoadConfig(const std::string& path);
 
     GameState gameState;
@@ -92,6 +102,7 @@ private:
     Paddle paddle;
     std::vector<Brick> bricks;
     std::vector<PowerUp> powerups;
+    std::vector<Particle> particles;
     std::vector<HighScore> leaderboard;
 
     int paddleExpandTimer;
@@ -103,6 +114,10 @@ private:
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);
     void TryDropPowerUp(Vector2 brickPos);
+    void SpawnBrickParticles(const Rectangle& brickRect, Color brickColor);
+    void UpdateParticles();
+    void DrawParticles();
+    Color GetBrickColor(int brickType) const;
 
     std::vector<HighScore> LoadLeaderboard() const;
     void SaveLeaderboard() const;
