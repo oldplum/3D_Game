@@ -14,6 +14,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet.git
+    GIT_TAG v1.3.18
+)
+FetchContent_MakeAvailable(enet)
+
+if(TARGET enet_static)
+    set(ENET_TARGET enet_static)
+elseif(TARGET enet)
+    set(ENET_TARGET enet)
+else()
+    message(FATAL_ERROR "ENet target not found")
+endif()
+
 find_library(RAYLIB_LIBRARY raylib REQUIRED)
 
 add_executable(breakout_week2
@@ -24,6 +39,12 @@ add_executable(breakout_week2
     Brick.cpp
     PowerUp.cpp
     PowerUpEffect.cpp
+    Networking.cpp
+)
+
+target_include_directories(breakout_week2
+    PRIVATE
+    ${enet_SOURCE_DIR}/include
 )
 
 set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)
@@ -32,6 +53,7 @@ target_link_libraries(breakout_week2
     PRIVATE
     ${RAYLIB_LIBRARY}
     nlohmann_json::nlohmann_json
+    ${ENET_TARGET}
     GL
     m
     pthread

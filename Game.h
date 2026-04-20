@@ -3,8 +3,10 @@
 
 #include "Ball.h"
 #include "Brick.h"
+#include "Networking.h"
 #include "Paddle.h"
 #include "PowerUp.h"
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,7 +27,9 @@ public:
 
     void SaveGameState(const std::string& path) const;
     bool LoadGameState(const std::string& path);
-
+    void StartNetworkHost();
+    bool StartNetworkClient(const std::string& host);
+    void StopNetwork();
     float GetPaddleExpandExtraWidth() const { return powerUpSettings.paddleExpandExtraWidth; }
     int GetPaddleExpandDurationFrames() const { return powerUpSettings.paddleExpandDurationFrames; }
     float GetBallSlowSpeedFactor() const { return powerUpSettings.ballSlowSpeedFactor; }
@@ -40,7 +44,14 @@ private:
         GAMEOVER,
         VICTORY,
         LEADERBOARD,
-        LEVEL_READY
+        LEVEL_READY,
+        NETWORK_WAITING
+    };
+
+    enum class NetworkMode {
+        NONE,
+        HOST,
+        CLIENT
     };
 
     struct LevelData {
@@ -116,9 +127,14 @@ private:
     void LoadConfig(const std::string& path);
     GameStateData CaptureGameState() const;
     void ApplyGameState(const GameStateData& data);
+    NetworkSnapshot CaptureNetworkSnapshot() const;
+    void ApplyNetworkSnapshot(const NetworkSnapshot& snapshot);
+    void UpdateNetworkHost();
+    void UpdateNetworkClient();
 
     GameState gameState;
     GameState stateBeforeLeaderboard;
+    NetworkMode networkMode;
     int screenWidth;
     int screenHeight;
     std::string windowTitle;
@@ -163,6 +179,22 @@ private:
     bool ballSlowActive;
     bool droppedPowerUpThisLevel;
 
+    std::unique_ptr<NetworkSession> networkSession;
+    float remotePaddleX;
+    float remotePaddleY;
+    float remotePaddleWidth;
+
+    bool interpolationActive;
+    double interpolationStartTime;
+    double interpolationDuration;
+    double lastSnapshotSendTime;
+    Vector2 interpolationBallFrom;
+    Vector2 interpolationBallTo;
+    Vector2 interpolationExtraBallFrom;
+    Vector2 interpolationExtraBallTo;
+    Rectangle interpolationPaddleFrom;
+    Rectangle interpolationPaddleTo;
+
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);
     void TryDropPowerUp(Vector2 brickPos);
@@ -184,6 +216,7 @@ private:
     void UpdateVictory();
 
     void CheckPaddleCollision(Ball& targetBall);
+    void CheckPaddleCollisionWithRect(Ball& targetBall, const Rectangle& paddleRect, bool topPaddle);
     void CheckBrickCollision(Ball& targetBall);
     bool CheckBottomCollision(const Ball& targetBall) const;
     void HandlePowerUpCatch(PowerUp& powerUp);
