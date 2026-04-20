@@ -189,6 +189,7 @@ private:
     bool interpolationActive;
     double interpolationStartTime;
     double interpolationDuration;
+    double lastSnapshotSendTime;
     Vector2 interpolationBallFrom;
     Vector2 interpolationBallTo;
     Vector2 interpolationExtraBallFrom;
@@ -217,6 +218,7 @@ private:
     void UpdateVictory();
 
     void CheckPaddleCollision(Ball& targetBall);
+    void CheckPaddleCollisionWithRect(Ball& targetBall, const Rectangle& paddleRect, bool topPaddle);
     void CheckBrickCollision(Ball& targetBall);
     bool CheckBottomCollision(const Ball& targetBall) const;
     void HandlePowerUpCatch(PowerUp& powerUp);

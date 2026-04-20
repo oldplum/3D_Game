@@ -171,7 +171,7 @@ bool NetworkSession::SendSnapshot(const NetworkSnapshot& snapshot) {
     }
     json["powerups"] = powerupArray;
 
-    return SendJson(json.dump(), true);
+    return SendJson(json.dump(), false);
 }
 
 bool NetworkSession::SendRemoteInput(float paddleX) {
