@@ -186,6 +186,16 @@ private:
     float remotePaddleY;
     float remotePaddleWidth;
 
+    bool interpolationActive;
+    double interpolationStartTime;
+    double interpolationDuration;
+    Vector2 interpolationBallFrom;
+    Vector2 interpolationBallTo;
+    Vector2 interpolationExtraBallFrom;
+    Vector2 interpolationExtraBallTo;
+    Rectangle interpolationPaddleFrom;
+    Rectangle interpolationPaddleTo;
+
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);
     void TryDropPowerUp(Vector2 brickPos);

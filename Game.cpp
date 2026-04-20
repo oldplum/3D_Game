@@ -49,7 +49,16 @@ Game::Game()
                 droppedPowerUpThisLevel(false),
                 remotePaddleX(300.0f),
                 remotePaddleY(80.0f),
-                remotePaddleWidth(paddleStartWidth) {}
+                remotePaddleWidth(paddleStartWidth),
+                interpolationActive(false),
+                interpolationStartTime(0.0),
+                interpolationDuration(0.05),
+                interpolationBallFrom({0.0f, 0.0f}),
+                interpolationBallTo({0.0f, 0.0f}),
+                interpolationExtraBallFrom({0.0f, 0.0f}),
+                interpolationExtraBallTo({0.0f, 0.0f}),
+                interpolationPaddleFrom({0.0f, 0.0f, 0.0f, 0.0f}),
+                interpolationPaddleTo({0.0f, 0.0f, 0.0f, 0.0f}) {}
 
 void Game::LoadConfig(const std::string& path) {
     std::ifstream file(path);
@@ -653,9 +662,15 @@ void Game::ApplyNetworkSnapshot(const NetworkSnapshot& snapshot) {
     extraBall.SetSpeed({snapshot.extraBallSpeedX, snapshot.extraBallSpeedY});
     paddle = Paddle(snapshot.paddleX, snapshot.paddleY, snapshot.paddleWidth, paddleHeight);
 
-    remotePaddleX = snapshot.remotePaddleX;
-    remotePaddleY = snapshot.remotePaddleY;
-    remotePaddleWidth = snapshot.remotePaddleWidth;
+    if (networkMode == NetworkMode::CLIENT) {
+        remotePaddleY = snapshot.remotePaddleY;
+        remotePaddleWidth = snapshot.remotePaddleWidth;
+        remotePaddleX = std::clamp(remotePaddleX, 0.0f, screenWidth - remotePaddleWidth);
+    } else {
+        remotePaddleX = snapshot.remotePaddleX;
+        remotePaddleY = snapshot.remotePaddleY;
+        remotePaddleWidth = snapshot.remotePaddleWidth;
+    }
 
     LevelData levelData = InitializeLevel(level);
     RebuildBricks(levelData);
@@ -676,6 +691,7 @@ void Game::StartNetworkHost() {
     networkSession = std::make_unique<NetworkSession>();
     if (networkSession && networkSession->StartHost(12345)) {
         networkMode = NetworkMode::HOST;
+        interpolationActive = false;
         remotePaddleWidth = paddleStartWidth;
         remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
         remotePaddleY = 80.0f;
@@ -691,6 +707,7 @@ bool Game::StartNetworkClient(const std::string& host) {
     networkSession = std::make_unique<NetworkSession>();
     if (networkSession && networkSession->Connect(host, 12345)) {
         networkMode = NetworkMode::CLIENT;
+        interpolationActive = false;
         remotePaddleWidth = paddleStartWidth;
         remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
         remotePaddleY = 80.0f;
@@ -710,6 +727,7 @@ void Game::StopNetwork() {
     }
 
     networkMode = NetworkMode::NONE;
+    interpolationActive = false;
     remotePaddleWidth = paddleStartWidth;
     remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
     remotePaddleY = 80.0f;
@@ -771,11 +789,60 @@ void Game::UpdateNetworkClient() {
     }
 
     if (batch.hasSnapshot) {
+        Vector2 previousBallPos = ball.GetPosition();
+        Vector2 previousExtraBallPos = extraBall.GetPosition();
+        Rectangle previousPaddleRect = paddle.GetRect();
+
         ApplyNetworkSnapshot(batch.snapshot);
+
+        interpolationBallFrom = previousBallPos;
+        interpolationBallTo = ball.GetPosition();
+        interpolationExtraBallFrom = previousExtraBallPos;
+        interpolationExtraBallTo = extraBall.GetPosition();
+        interpolationPaddleFrom = previousPaddleRect;
+        interpolationPaddleTo = paddle.GetRect();
+
+        ball.SetPosition(interpolationBallFrom);
+        extraBall.SetPosition(interpolationExtraBallFrom);
+        paddle = Paddle(interpolationPaddleFrom.x, interpolationPaddleFrom.y, interpolationPaddleFrom.width, interpolationPaddleFrom.height);
+
+        interpolationStartTime = GetTime();
+        interpolationActive = true;
+
         if (gameState == GameState::NETWORK_WAITING) {
             gameState = GameState::PLAYING;
         }
         remotePaddleX = std::clamp(remotePaddleX, 0.0f, screenWidth - remotePaddleWidth);
+    }
+
+    if (interpolationActive) {
+        const double elapsed = GetTime() - interpolationStartTime;
+        float t = static_cast<float>(elapsed / interpolationDuration);
+        t = std::clamp(t, 0.0f, 1.0f);
+
+        Vector2 ballInterpolated = {
+            interpolationBallFrom.x + (interpolationBallTo.x - interpolationBallFrom.x) * t,
+            interpolationBallFrom.y + (interpolationBallTo.y - interpolationBallFrom.y) * t
+        };
+        ball.SetPosition(ballInterpolated);
+
+        Vector2 extraBallInterpolated = {
+            interpolationExtraBallFrom.x + (interpolationExtraBallTo.x - interpolationExtraBallFrom.x) * t,
+            interpolationExtraBallFrom.y + (interpolationExtraBallTo.y - interpolationExtraBallFrom.y) * t
+        };
+        extraBall.SetPosition(extraBallInterpolated);
+
+        Rectangle paddleInterpolated = {
+            interpolationPaddleFrom.x + (interpolationPaddleTo.x - interpolationPaddleFrom.x) * t,
+            interpolationPaddleFrom.y + (interpolationPaddleTo.y - interpolationPaddleFrom.y) * t,
+            interpolationPaddleFrom.width + (interpolationPaddleTo.width - interpolationPaddleFrom.width) * t,
+            interpolationPaddleFrom.height + (interpolationPaddleTo.height - interpolationPaddleFrom.height) * t
+        };
+        paddle = Paddle(paddleInterpolated.x, paddleInterpolated.y, paddleInterpolated.width, paddleInterpolated.height);
+
+        if (t >= 1.0f) {
+            interpolationActive = false;
+        }
     }
 }
 
