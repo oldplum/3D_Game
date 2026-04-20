@@ -3,8 +3,10 @@
 
 #include "Ball.h"
 #include "Brick.h"
+#include "Networking.h"
 #include "Paddle.h"
 #include "PowerUp.h"
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -23,6 +25,13 @@ public:
     void ApplyMultiBallEffect(int scoreBonus);
     void ApplySlowFieldEffect(float factor, int scoreBonus);
 
+    void SaveGameState(const std::string& path) const;
+    bool LoadGameState(const std::string& path);
+
+    void StartNetworkHost();
+    bool StartNetworkClient(const std::string& host);
+    void StopNetwork();
+
     float GetPaddleExpandExtraWidth() const { return powerUpSettings.paddleExpandExtraWidth; }
     int GetPaddleExpandDurationFrames() const { return powerUpSettings.paddleExpandDurationFrames; }
     float GetBallSlowSpeedFactor() const { return powerUpSettings.ballSlowSpeedFactor; }
@@ -37,7 +46,14 @@ private:
         GAMEOVER,
         VICTORY,
         LEADERBOARD,
-        LEVEL_READY
+        LEVEL_READY,
+        NETWORK_WAITING
+    };
+
+    enum class NetworkMode {
+        NONE,
+        HOST,
+        CLIENT
     };
 
     struct LevelData {
@@ -50,6 +66,40 @@ private:
     struct HighScore {
         int score;
         int level;
+    };
+
+    struct SerializedPowerUp {
+        int type;
+        float x;
+        float y;
+        bool active;
+    };
+
+    struct GameStateData {
+        int gameState;
+        int lives;
+        int score;
+        int level;
+        int combo;
+        int frameCounter;
+        float ballSpeedIncrease;
+        int levelReadyCountdown;
+        bool multiballActive;
+        bool ballSlowActive;
+        bool droppedPowerUpThisLevel;
+        float ballX;
+        float ballY;
+        float ballSpeedX;
+        float ballSpeedY;
+        float extraBallX;
+        float extraBallY;
+        float extraBallSpeedX;
+        float extraBallSpeedY;
+        float paddleX;
+        float paddleY;
+        float paddleWidth;
+        std::vector<int> brickActive;
+        std::vector<SerializedPowerUp> powerups;
     };
 
     struct PowerUpSettings {
@@ -77,9 +127,16 @@ private:
     };
 
     void LoadConfig(const std::string& path);
+    GameStateData CaptureGameState() const;
+    void ApplyGameState(const GameStateData& data);
+    NetworkSnapshot CaptureNetworkSnapshot() const;
+    void ApplyNetworkSnapshot(const NetworkSnapshot& snapshot);
+    void UpdateNetworkHost();
+    void UpdateNetworkClient();
 
     GameState gameState;
     GameState stateBeforeLeaderboard;
+    NetworkMode networkMode;
     int screenWidth;
     int screenHeight;
     std::string windowTitle;
@@ -123,6 +180,11 @@ private:
     bool multiballActive;
     bool ballSlowActive;
     bool droppedPowerUpThisLevel;
+
+    std::unique_ptr<NetworkSession> networkSession;
+    float remotePaddleX;
+    float remotePaddleY;
+    float remotePaddleWidth;
 
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);

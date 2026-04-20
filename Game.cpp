@@ -12,6 +12,7 @@ using json = nlohmann::json;
 Game::Game()
         : gameState(GameState::MENU),
             stateBeforeLeaderboard(GameState::MENU),
+        networkMode(NetworkMode::NONE),
     screenWidth(800),
     screenHeight(600),
     windowTitle("Breakout"),
@@ -45,7 +46,10 @@ Game::Game()
       pierceTimer(0),
             multiballActive(false),
                         ballSlowActive(false),
-                        droppedPowerUpThisLevel(false) {}
+                droppedPowerUpThisLevel(false),
+                remotePaddleX(300.0f),
+                remotePaddleY(80.0f),
+                remotePaddleWidth(paddleStartWidth) {}
 
 void Game::LoadConfig(const std::string& path) {
     std::ifstream file(path);
@@ -165,6 +169,9 @@ void Game::Update() {
         case GameState::LEVEL_READY:
             UpdateLevelReady();
             break;
+        case GameState::NETWORK_WAITING:
+            UpdateNetworkClient();
+            break;
     }
 }
 
@@ -181,6 +188,7 @@ void Game::Draw() {
         DrawText("BREAKOUT 2D", screenWidth / 2 - 150, 80, 60, DARKBLUE);
         DrawText("Press SPACE to Start", screenWidth / 2 - 180, 250, 32, DARKGRAY);
         DrawText("Press L to View Leaderboard", screenWidth / 2 - 200, 320, 24, DARKGRAY);
+        DrawText("Press H to Host | Press C to Connect localhost", screenWidth / 2 - 250, 400, 20, DARKGRAY);
         DrawText("Controls: <- -> to move paddle | P to pause", screenWidth / 2 - 250, 450, 20, GRAY);
     } else if (gameState == GameState::LEADERBOARD) {
         DrawText("TOP 10 SCORES", screenWidth / 2 - 150, 50, 40, DARKBLUE);
@@ -189,6 +197,10 @@ void Game::Draw() {
                 100, 120 + i * 40, 24, DARKGRAY);
         }
         DrawText("Press L to return", screenWidth / 2 - 150, screenHeight - 50, 20, GRAY);
+    } else if (gameState == GameState::NETWORK_WAITING) {
+        DrawText("NETWORK WAITING", screenWidth / 2 - 190, 180, 48, DARKBLUE);
+        DrawText("Connecting...", screenWidth / 2 - 120, 260, 28, DARKGRAY);
+        DrawText("Press ESC to return", screenWidth / 2 - 140, 320, 20, GRAY);
     } else if (gameState == GameState::LEVEL_READY) {
         ball.Draw();
         paddle.Draw();
@@ -209,6 +221,10 @@ void Game::Draw() {
         ball.Draw();
         if (multiballActive) extraBall.Draw();
         paddle.Draw();
+        if (networkMode != NetworkMode::NONE) {
+            DrawRectangle(remotePaddleX, remotePaddleY, remotePaddleWidth, paddleHeight, SKYBLUE);
+            DrawRectangleLines(remotePaddleX, remotePaddleY, remotePaddleWidth, paddleHeight, DARKBLUE);
+        }
         for (auto& brick : bricks) brick.Draw();
         DrawParticles();
         for (auto& powerUp : powerups) powerUp.Draw();
@@ -220,6 +236,9 @@ void Game::Draw() {
             DrawText(TextFormat("Combo: %d x%.1f", combo, 1.0f + (combo / 5.0f)), 600, 10, 18, ORANGE);
         }
         DrawText(TextFormat("Speed: %.1f x", ballSpeedIncrease), 12, 100, 16, DARKGREEN);
+        if (networkMode != NetworkMode::NONE) {
+            DrawText(networkMode == NetworkMode::HOST ? "NET: HOST" : "NET: CLIENT", 650, 40, 18, PURPLE);
+        }
 
         if (paddleExpandTimer > 0) DrawText("PADDLE+", 350, 520, 16, GREEN);
         if (ballSlowTimer > 0) DrawText("SLOW", 350, 520, 16, YELLOW);
@@ -372,12 +391,23 @@ void Game::StartNewRun() {
     RebuildBricks(currentLevel);
     powerups.clear();
     particles.clear();
+    remotePaddleWidth = currentLevel.paddleWidth;
+    remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
+    remotePaddleY = 80.0f;
     gameState = GameState::LEVEL_READY;
 }
 
 void Game::UpdateMenu() {
     if (IsKeyPressed(KEY_SPACE)) {
         StartNewRun();
+    }
+
+    if (IsKeyPressed(KEY_H)) {
+        StartNetworkHost();
+    }
+
+    if (IsKeyPressed(KEY_C)) {
+        StartNetworkClient("127.0.0.1");
     }
 }
 
@@ -397,6 +427,11 @@ void Game::UpdateLevelReady() {
 }
 
 void Game::UpdatePlaying() {
+    if (networkMode == NetworkMode::CLIENT) {
+        UpdateNetworkClient();
+        return;
+    }
+
     if (frameCounter > 0 && frameCounter % 600 == 0) {
         ballSpeedIncrease += 0.1f;
     }
@@ -526,6 +561,10 @@ void Game::UpdatePlaying() {
             SaveLeaderboard();
         }
     }
+
+    if (networkMode == NetworkMode::HOST) {
+        UpdateNetworkHost();
+    }
 }
 
 void Game::UpdatePaused() {
@@ -541,6 +580,202 @@ void Game::UpdateGameOver() {
 void Game::UpdateVictory() {
     if (IsKeyPressed(KEY_R)) {
         gameState = GameState::MENU;
+    }
+}
+
+NetworkSnapshot Game::CaptureNetworkSnapshot() const {
+    NetworkSnapshot snapshot;
+    snapshot.gameState = static_cast<int>(gameState);
+    snapshot.lives = lives;
+    snapshot.score = score;
+    snapshot.level = level;
+    snapshot.combo = combo;
+    snapshot.frameCounter = frameCounter;
+    snapshot.ballSpeedIncrease = ballSpeedIncrease;
+    snapshot.levelReadyCountdown = levelReadyCountdown;
+    snapshot.multiballActive = multiballActive;
+    snapshot.ballSlowActive = ballSlowActive;
+    snapshot.droppedPowerUpThisLevel = droppedPowerUpThisLevel;
+
+    Vector2 ballPos = ball.GetPosition();
+    Vector2 ballSpeed = ball.GetSpeed();
+    snapshot.ballX = ballPos.x;
+    snapshot.ballY = ballPos.y;
+    snapshot.ballSpeedX = ballSpeed.x;
+    snapshot.ballSpeedY = ballSpeed.y;
+
+    Vector2 extraBallPos = extraBall.GetPosition();
+    Vector2 extraBallSpeed = extraBall.GetSpeed();
+    snapshot.extraBallX = extraBallPos.x;
+    snapshot.extraBallY = extraBallPos.y;
+    snapshot.extraBallSpeedX = extraBallSpeed.x;
+    snapshot.extraBallSpeedY = extraBallSpeed.y;
+
+    Rectangle paddleRect = paddle.GetRect();
+    snapshot.paddleX = paddleRect.x;
+    snapshot.paddleY = paddleRect.y;
+    snapshot.paddleWidth = paddleRect.width;
+
+    snapshot.remotePaddleX = remotePaddleX;
+    snapshot.remotePaddleY = remotePaddleY;
+    snapshot.remotePaddleWidth = remotePaddleWidth;
+
+    snapshot.brickActive.reserve(bricks.size());
+    for (const auto& brick : bricks) {
+        snapshot.brickActive.push_back(brick.IsActive() ? 1 : 0);
+    }
+
+    snapshot.powerups.reserve(powerups.size());
+    for (const auto& powerUp : powerups) {
+        Vector2 pos = powerUp.GetPosition();
+        snapshot.powerups.push_back({static_cast<int>(powerUp.GetType()), pos.x, pos.y, powerUp.IsActive()});
+    }
+
+    return snapshot;
+}
+
+void Game::ApplyNetworkSnapshot(const NetworkSnapshot& snapshot) {
+    gameState = static_cast<GameState>(snapshot.gameState);
+    lives = snapshot.lives;
+    score = snapshot.score;
+    level = snapshot.level;
+    combo = snapshot.combo;
+    frameCounter = snapshot.frameCounter;
+    ballSpeedIncrease = snapshot.ballSpeedIncrease;
+    levelReadyCountdown = snapshot.levelReadyCountdown;
+    multiballActive = snapshot.multiballActive;
+    ballSlowActive = snapshot.ballSlowActive;
+    droppedPowerUpThisLevel = snapshot.droppedPowerUpThisLevel;
+
+    ball.SetPosition({snapshot.ballX, snapshot.ballY});
+    ball.SetSpeed({snapshot.ballSpeedX, snapshot.ballSpeedY});
+    extraBall.SetPosition({snapshot.extraBallX, snapshot.extraBallY});
+    extraBall.SetSpeed({snapshot.extraBallSpeedX, snapshot.extraBallSpeedY});
+    paddle = Paddle(snapshot.paddleX, snapshot.paddleY, snapshot.paddleWidth, paddleHeight);
+
+    remotePaddleX = snapshot.remotePaddleX;
+    remotePaddleY = snapshot.remotePaddleY;
+    remotePaddleWidth = snapshot.remotePaddleWidth;
+
+    LevelData levelData = InitializeLevel(level);
+    RebuildBricks(levelData);
+    for (size_t i = 0; i < bricks.size() && i < snapshot.brickActive.size(); i++) {
+        bricks[i].SetActive(snapshot.brickActive[i] != 0);
+    }
+
+    powerups.clear();
+    for (const auto& savedPowerUp : snapshot.powerups) {
+        PowerUp powerUp({savedPowerUp.x, savedPowerUp.y}, static_cast<PowerUpType>(savedPowerUp.type));
+        powerUp.SetActive(savedPowerUp.active);
+        powerups.push_back(powerUp);
+    }
+}
+
+void Game::StartNetworkHost() {
+    StopNetwork();
+    networkSession = std::make_unique<NetworkSession>();
+    if (networkSession && networkSession->StartHost(12345)) {
+        networkMode = NetworkMode::HOST;
+        remotePaddleWidth = paddleStartWidth;
+        remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
+        remotePaddleY = 80.0f;
+        StartNewRun();
+    } else {
+        networkSession.reset();
+        networkMode = NetworkMode::NONE;
+    }
+}
+
+bool Game::StartNetworkClient(const std::string& host) {
+    StopNetwork();
+    networkSession = std::make_unique<NetworkSession>();
+    if (networkSession && networkSession->Connect(host, 12345)) {
+        networkMode = NetworkMode::CLIENT;
+        remotePaddleWidth = paddleStartWidth;
+        remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
+        remotePaddleY = 80.0f;
+        gameState = GameState::NETWORK_WAITING;
+        return true;
+    }
+
+    networkSession.reset();
+    networkMode = NetworkMode::NONE;
+    return false;
+}
+
+void Game::StopNetwork() {
+    if (networkSession) {
+        networkSession->Shutdown();
+        networkSession.reset();
+    }
+
+    networkMode = NetworkMode::NONE;
+    remotePaddleWidth = paddleStartWidth;
+    remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
+    remotePaddleY = 80.0f;
+}
+
+void Game::UpdateNetworkHost() {
+    if (!networkSession || !networkSession->IsRunning()) {
+        return;
+    }
+
+    NetworkEventBatch batch;
+    networkSession->Poll(batch);
+
+    if (batch.disconnected) {
+        StopNetwork();
+        gameState = GameState::MENU;
+        return;
+    }
+
+    if (batch.hasRemoteInput) {
+        remotePaddleX = std::clamp(batch.remotePaddleX, 0.0f, screenWidth - remotePaddleWidth);
+    }
+
+    remotePaddleWidth = paddle.GetRect().width;
+    remotePaddleY = 80.0f;
+
+    if (networkSession->SendSnapshot(CaptureNetworkSnapshot())) {
+        // 主机每帧广播一次最新状态。
+    }
+}
+
+void Game::UpdateNetworkClient() {
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        StopNetwork();
+        gameState = GameState::MENU;
+        return;
+    }
+
+    if (!networkSession || !networkSession->IsRunning()) {
+        return;
+    }
+
+    if (IsKeyDown(KEY_LEFT)) {
+        remotePaddleX -= paddleMoveSpeed;
+    }
+    if (IsKeyDown(KEY_RIGHT)) {
+        remotePaddleX += paddleMoveSpeed;
+    }
+    remotePaddleX = std::clamp(remotePaddleX, 0.0f, screenWidth - remotePaddleWidth);
+    networkSession->SendRemoteInput(remotePaddleX);
+
+    NetworkEventBatch batch;
+    networkSession->Poll(batch);
+
+    if (batch.disconnected) {
+        StopNetwork();
+        gameState = GameState::MENU;
+        return;
+    }
+
+    if (batch.hasSnapshot) {
+        ApplyNetworkSnapshot(batch.snapshot);
+        if (gameState == GameState::NETWORK_WAITING) {
+            gameState = GameState::PLAYING;
+        }
+        remotePaddleX = std::clamp(remotePaddleX, 0.0f, screenWidth - remotePaddleWidth);
     }
 }
 
