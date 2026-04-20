@@ -23,6 +23,9 @@ public:
     void ApplyMultiBallEffect(int scoreBonus);
     void ApplySlowFieldEffect(float factor, int scoreBonus);
 
+    void SaveGameState(const std::string& path) const;
+    bool LoadGameState(const std::string& path);
+
     float GetPaddleExpandExtraWidth() const { return powerUpSettings.paddleExpandExtraWidth; }
     int GetPaddleExpandDurationFrames() const { return powerUpSettings.paddleExpandDurationFrames; }
     float GetBallSlowSpeedFactor() const { return powerUpSettings.ballSlowSpeedFactor; }
@@ -52,6 +55,40 @@ private:
         int level;
     };
 
+    struct SerializedPowerUp {
+        int type;
+        float x;
+        float y;
+        bool active;
+    };
+
+    struct GameStateData {
+        int gameState;
+        int lives;
+        int score;
+        int level;
+        int combo;
+        int frameCounter;
+        float ballSpeedIncrease;
+        int levelReadyCountdown;
+        bool multiballActive;
+        bool ballSlowActive;
+        bool droppedPowerUpThisLevel;
+        float ballX;
+        float ballY;
+        float ballSpeedX;
+        float ballSpeedY;
+        float extraBallX;
+        float extraBallY;
+        float extraBallSpeedX;
+        float extraBallSpeedY;
+        float paddleX;
+        float paddleY;
+        float paddleWidth;
+        std::vector<int> brickActive;
+        std::vector<SerializedPowerUp> powerups;
+    };
+
     struct PowerUpSettings {
         float paddleExpandExtraWidth = 40.0f;
         int paddleExpandDurationFrames = 300;
@@ -77,6 +114,8 @@ private:
     };
 
     void LoadConfig(const std::string& path);
+    GameStateData CaptureGameState() const;
+    void ApplyGameState(const GameStateData& data);
 
     GameState gameState;
     GameState stateBeforeLeaderboard;

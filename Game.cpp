@@ -401,6 +401,14 @@ void Game::UpdatePlaying() {
         ballSpeedIncrease += 0.1f;
     }
 
+    if (IsKeyPressed(KEY_F5)) {
+        SaveGameState("savegame.json");
+    }
+
+    if (IsKeyPressed(KEY_F9)) {
+        LoadGameState("savegame.json");
+    }
+
     ball.Move();
     ball.BounceEdge(screenWidth, screenHeight);
 
@@ -720,4 +728,186 @@ bool Game::AreAllBricksClear() const {
         }
     }
     return true;
+}
+
+Game::GameStateData Game::CaptureGameState() const {
+    GameStateData data;
+    data.gameState = static_cast<int>(gameState);
+    data.lives = lives;
+    data.score = score;
+    data.level = level;
+    data.combo = combo;
+    data.frameCounter = frameCounter;
+    data.ballSpeedIncrease = ballSpeedIncrease;
+    data.levelReadyCountdown = levelReadyCountdown;
+    data.multiballActive = multiballActive;
+    data.ballSlowActive = ballSlowActive;
+    data.droppedPowerUpThisLevel = droppedPowerUpThisLevel;
+
+    Vector2 ballPos = ball.GetPosition();
+    Vector2 ballSpeed = ball.GetSpeed();
+    data.ballX = ballPos.x;
+    data.ballY = ballPos.y;
+    data.ballSpeedX = ballSpeed.x;
+    data.ballSpeedY = ballSpeed.y;
+
+    Vector2 extraBallPos = extraBall.GetPosition();
+    Vector2 extraBallSpeed = extraBall.GetSpeed();
+    data.extraBallX = extraBallPos.x;
+    data.extraBallY = extraBallPos.y;
+    data.extraBallSpeedX = extraBallSpeed.x;
+    data.extraBallSpeedY = extraBallSpeed.y;
+
+    Rectangle paddleRect = paddle.GetRect();
+    data.paddleX = paddleRect.x;
+    data.paddleY = paddleRect.y;
+    data.paddleWidth = paddleRect.width;
+
+    data.brickActive.reserve(bricks.size());
+    for (const auto& brick : bricks) {
+        data.brickActive.push_back(brick.IsActive() ? 1 : 0);
+    }
+
+    data.powerups.reserve(powerups.size());
+    for (const auto& powerUp : powerups) {
+        Vector2 pos = powerUp.GetPosition();
+        data.powerups.push_back({static_cast<int>(powerUp.GetType()), pos.x, pos.y, powerUp.IsActive()});
+    }
+
+    return data;
+}
+
+void Game::ApplyGameState(const GameStateData& data) {
+    gameState = static_cast<GameState>(data.gameState);
+    lives = data.lives;
+    score = data.score;
+    level = data.level;
+    combo = data.combo;
+    frameCounter = data.frameCounter;
+    ballSpeedIncrease = data.ballSpeedIncrease;
+    levelReadyCountdown = data.levelReadyCountdown;
+    multiballActive = data.multiballActive;
+    ballSlowActive = data.ballSlowActive;
+    droppedPowerUpThisLevel = data.droppedPowerUpThisLevel;
+
+    ball.SetPosition({data.ballX, data.ballY});
+    ball.SetSpeed({data.ballSpeedX, data.ballSpeedY});
+    extraBall.SetPosition({data.extraBallX, data.extraBallY});
+    extraBall.SetSpeed({data.extraBallSpeedX, data.extraBallSpeedY});
+    paddle = Paddle(data.paddleX, data.paddleY, data.paddleWidth, paddleHeight);
+
+    LevelData levelData = InitializeLevel(level);
+    RebuildBricks(levelData);
+    for (size_t i = 0; i < bricks.size() && i < data.brickActive.size(); i++) {
+        bricks[i].SetActive(data.brickActive[i] != 0);
+    }
+
+    powerups.clear();
+    for (const auto& savedPowerUp : data.powerups) {
+        PowerUp powerUp({savedPowerUp.x, savedPowerUp.y}, static_cast<PowerUpType>(savedPowerUp.type));
+        powerUp.SetActive(savedPowerUp.active);
+        powerups.push_back(powerUp);
+    }
+}
+
+void Game::SaveGameState(const std::string& path) const {
+    GameStateData data = CaptureGameState();
+
+    json saved;
+    saved["gameState"] = data.gameState;
+    saved["lives"] = data.lives;
+    saved["score"] = data.score;
+    saved["level"] = data.level;
+    saved["combo"] = data.combo;
+    saved["frameCounter"] = data.frameCounter;
+    saved["ballSpeedIncrease"] = data.ballSpeedIncrease;
+    saved["levelReadyCountdown"] = data.levelReadyCountdown;
+    saved["multiballActive"] = data.multiballActive;
+    saved["ballSlowActive"] = data.ballSlowActive;
+    saved["droppedPowerUpThisLevel"] = data.droppedPowerUpThisLevel;
+    saved["ball"] = {data.ballX, data.ballY, data.ballSpeedX, data.ballSpeedY};
+    saved["extraBall"] = {data.extraBallX, data.extraBallY, data.extraBallSpeedX, data.extraBallSpeedY};
+    saved["paddle"] = {data.paddleX, data.paddleY, data.paddleWidth};
+    saved["brickActive"] = data.brickActive;
+
+    json powerupArray = json::array();
+    for (const auto& powerUp : data.powerups) {
+        powerupArray.push_back({
+            {"type", powerUp.type},
+            {"x", powerUp.x},
+            {"y", powerUp.y},
+            {"active", powerUp.active}
+        });
+    }
+    saved["powerups"] = powerupArray;
+
+    std::ofstream file(path);
+    if (file.is_open()) {
+        file << saved.dump(2);
+    }
+}
+
+bool Game::LoadGameState(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    try {
+        json saved = json::parse(file);
+        GameStateData data;
+
+        data.gameState = saved.value("gameState", static_cast<int>(GameState::MENU));
+        data.lives = saved.value("lives", lives);
+        data.score = saved.value("score", score);
+        data.level = saved.value("level", level);
+        data.combo = saved.value("combo", combo);
+        data.frameCounter = saved.value("frameCounter", frameCounter);
+        data.ballSpeedIncrease = saved.value("ballSpeedIncrease", ballSpeedIncrease);
+        data.levelReadyCountdown = saved.value("levelReadyCountdown", levelReadyCountdown);
+        data.multiballActive = saved.value("multiballActive", multiballActive);
+        data.ballSlowActive = saved.value("ballSlowActive", ballSlowActive);
+        data.droppedPowerUpThisLevel = saved.value("droppedPowerUpThisLevel", droppedPowerUpThisLevel);
+
+        auto ballArray = saved.value("ball", std::vector<float>{400.0f, 300.0f, 2.0f, 2.0f});
+        if (ballArray.size() >= 4) {
+            data.ballX = ballArray[0];
+            data.ballY = ballArray[1];
+            data.ballSpeedX = ballArray[2];
+            data.ballSpeedY = ballArray[3];
+        }
+
+        auto extraBallArray = saved.value("extraBall", std::vector<float>{-1000.0f, -1000.0f, 0.0f, 0.0f});
+        if (extraBallArray.size() >= 4) {
+            data.extraBallX = extraBallArray[0];
+            data.extraBallY = extraBallArray[1];
+            data.extraBallSpeedX = extraBallArray[2];
+            data.extraBallSpeedY = extraBallArray[3];
+        }
+
+        auto paddleArray = saved.value("paddle", std::vector<float>{300.0f, 550.0f, paddleStartWidth});
+        if (paddleArray.size() >= 3) {
+            data.paddleX = paddleArray[0];
+            data.paddleY = paddleArray[1];
+            data.paddleWidth = paddleArray[2];
+        }
+
+        data.brickActive = saved.value("brickActive", std::vector<int>{});
+
+        if (saved.contains("powerups") && saved["powerups"].is_array()) {
+            for (const auto& item : saved["powerups"]) {
+                SerializedPowerUp powerUpData;
+                powerUpData.type = item.value("type", static_cast<int>(PADDLE_EXPAND));
+                powerUpData.x = item.value("x", 0.0f);
+                powerUpData.y = item.value("y", 0.0f);
+                powerUpData.active = item.value("active", true);
+                data.powerups.push_back(powerUpData);
+            }
+        }
+
+        ApplyGameState(data);
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
 }
