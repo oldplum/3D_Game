@@ -3,9 +3,11 @@
 #include <nlohmann/json.hpp>
 #include "raylib.h"
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -50,6 +52,10 @@ Game::Game()
                 remotePaddleX(300.0f),
                 remotePaddleY(80.0f),
                 remotePaddleWidth(paddleStartWidth),
+                asyncLoading(false),
+                asyncLoadCompleted(false),
+                asyncColorApplied(false),
+                asyncLoadedBrickTint({255, 120, 80, 120}),
                 interpolationActive(false),
                 interpolationStartTime(0.0),
                 interpolationDuration(0.05),
@@ -146,6 +152,7 @@ void Game::Init() {
 
 void Game::Update() {
     frameCounter++;
+    PollAsyncLoadTask();
 
     if (networkMode == NetworkMode::HOST) {
         UpdateNetworkHost();
@@ -153,7 +160,7 @@ void Game::Update() {
         UpdateNetworkClient();
     }
 
-    if (IsKeyPressed(KEY_L)) {
+    if (IsKeyPressed(KEY_TAB)) {
         if (gameState == GameState::LEADERBOARD) {
             gameState = stateBeforeLeaderboard;
         } else {
@@ -194,6 +201,16 @@ void Game::Draw() {
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
+    bool showLoading = false;
+    bool showLoadedTint = false;
+    Color loadedTint = asyncLoadedBrickTint;
+    {
+        std::lock_guard<std::mutex> lock(asyncLoadMutex);
+        showLoading = asyncLoading;
+        showLoadedTint = asyncColorApplied;
+        loadedTint = asyncLoadedBrickTint;
+    }
+
     DrawRectangle(0, 0, 5, screenHeight, GRAY);
     DrawRectangle(screenWidth - 5, 0, 5, screenHeight, GRAY);
     DrawRectangle(0, 0, screenWidth, 5, GRAY);
@@ -202,16 +219,16 @@ void Game::Draw() {
     if (gameState == GameState::MENU) {
         DrawText("BREAKOUT 2D", screenWidth / 2 - 150, 80, 60, DARKBLUE);
         DrawText("Press SPACE to Start", screenWidth / 2 - 180, 250, 32, DARKGRAY);
-        DrawText("Press L to View Leaderboard", screenWidth / 2 - 200, 320, 24, DARKGRAY);
+        DrawText("Press TAB to View Leaderboard", screenWidth / 2 - 225, 320, 24, DARKGRAY);
         DrawText("Press H to Host | Press C to Connect localhost", screenWidth / 2 - 250, 400, 20, DARKGRAY);
-        DrawText("Controls: <- -> to move paddle | P to pause", screenWidth / 2 - 250, 450, 20, GRAY);
+        DrawText("Controls: <- -> move | P pause | L async load", screenWidth / 2 - 255, 450, 20, GRAY);
     } else if (gameState == GameState::LEADERBOARD) {
         DrawText("TOP 10 SCORES", screenWidth / 2 - 150, 50, 40, DARKBLUE);
         for (size_t i = 0; i < leaderboard.size() && i < 10; i++) {
             DrawText(TextFormat("#%d: %d pts (Level %d)", i + 1, leaderboard[i].score, leaderboard[i].level),
                 100, 120 + i * 40, 24, DARKGRAY);
         }
-        DrawText("Press L to return", screenWidth / 2 - 150, screenHeight - 50, 20, GRAY);
+        DrawText("Press TAB to return", screenWidth / 2 - 170, screenHeight - 50, 20, GRAY);
     } else if (gameState == GameState::NETWORK_WAITING) {
         DrawText("NETWORK WAITING", screenWidth / 2 - 190, 180, 48, DARKBLUE);
         DrawText("Connecting...", screenWidth / 2 - 120, 260, 28, DARKGRAY);
@@ -220,6 +237,13 @@ void Game::Draw() {
         ball.Draw();
         paddle.Draw();
         for (auto& brick : bricks) brick.Draw();
+        if (showLoadedTint) {
+            for (const auto& brick : bricks) {
+                if (brick.IsActive()) {
+                    DrawRectangleRec(brick.GetRect(), loadedTint);
+                }
+            }
+        }
 
         DrawText(TextFormat("Score: %d", score), 12, 10, 20, DARKGRAY);
         DrawText(TextFormat("Level: %d", level), 12, 40, 20, DARKGRAY);
@@ -241,6 +265,13 @@ void Game::Draw() {
             DrawRectangleLines(remotePaddleX, remotePaddleY, remotePaddleWidth, paddleHeight, DARKBLUE);
         }
         for (auto& brick : bricks) brick.Draw();
+        if (showLoadedTint) {
+            for (const auto& brick : bricks) {
+                if (brick.IsActive()) {
+                    DrawRectangleRec(brick.GetRect(), loadedTint);
+                }
+            }
+        }
         DrawParticles();
         for (auto& powerUp : powerups) powerUp.Draw();
 
@@ -275,10 +306,21 @@ void Game::Draw() {
         DrawText("Press P to Resume", screenWidth / 2 - 150, screenHeight / 2 + 50, 24, WHITE);
     }
 
+    if (showLoading && (gameState == GameState::PLAYING || gameState == GameState::LEVEL_READY)) {
+        static const char* loadingFrames[] = {"Loading", "Loading.", "Loading..", "Loading..."};
+        int frameIndex = (frameCounter / 15) % 4;
+        DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 100});
+        DrawText(loadingFrames[frameIndex], screenWidth / 2 - 90, screenHeight / 2 - 20, 42, WHITE);
+    }
+
     EndDrawing();
 }
 
 void Game::Shutdown() {
+    if (asyncLoadFuture.valid()) {
+        asyncLoadFuture.wait();
+        asyncLoadFuture.get();
+    }
     SaveLeaderboard();
     CloseWindow();
 }
@@ -406,6 +448,12 @@ void Game::StartNewRun() {
     RebuildBricks(currentLevel);
     powerups.clear();
     particles.clear();
+    {
+        std::lock_guard<std::mutex> lock(asyncLoadMutex);
+        asyncLoading = false;
+        asyncLoadCompleted = false;
+        asyncColorApplied = false;
+    }
     remotePaddleWidth = currentLevel.paddleWidth;
     remotePaddleX = (screenWidth - remotePaddleWidth) * 0.5f;
     remotePaddleY = screenHeight - 50.0f;
@@ -429,13 +477,56 @@ void Game::UpdateMenu() {
 void Game::UpdateLeaderboard() {
 }
 
+void Game::StartAsyncLoadTask() {
+    {
+        std::lock_guard<std::mutex> lock(asyncLoadMutex);
+        if (asyncLoading) {
+            return;
+        }
+        asyncLoading = true;
+        asyncLoadCompleted = false;
+    }
+
+    if (asyncLoadFuture.valid()) {
+        asyncLoadFuture.wait();
+        asyncLoadFuture.get();
+    }
+
+    asyncLoadFuture = std::async(std::launch::async, [this]() {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+
+        std::lock_guard<std::mutex> lock(asyncLoadMutex);
+        asyncLoadedBrickTint = {255, 120, 80, 120};
+        asyncLoading = false;
+        asyncLoadCompleted = true;
+    });
+}
+
+void Game::PollAsyncLoadTask() {
+    if (asyncLoadFuture.valid() &&
+        asyncLoadFuture.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
+        asyncLoadFuture.get();
+    }
+
+    std::lock_guard<std::mutex> lock(asyncLoadMutex);
+    if (asyncLoadCompleted) {
+        asyncColorApplied = true;
+        asyncLoadCompleted = false;
+    }
+}
+
+bool Game::IsAsyncLoading() const {
+    std::lock_guard<std::mutex> lock(asyncLoadMutex);
+    return asyncLoading;
+}
+
 void Game::UpdateLevelReady() {
-    if (networkMode == NetworkMode::HOST) {
+    if (networkMode != NetworkMode::CLIENT) {
         levelReadyCountdown--;
     }
 
     if (levelReadyCountdown <= 0) {
-        if (networkMode == NetworkMode::HOST) {
+        if (networkMode != NetworkMode::CLIENT) {
             LevelData currentLevel = InitializeLevel(level);
             float levelBallSpeed = baseBallSpeed * currentLevel.ballSpeedMultiplier * ballSpeedIncrease;
             ball.SetSpeed({levelBallSpeed, levelBallSpeed});
@@ -446,7 +537,7 @@ void Game::UpdateLevelReady() {
 }
 
 void Game::UpdatePlaying() {
-    if (networkMode != NetworkMode::HOST) {
+    if (networkMode == NetworkMode::CLIENT) {
         return;
     }
 
@@ -460,6 +551,10 @@ void Game::UpdatePlaying() {
 
     if (IsKeyPressed(KEY_F9)) {
         LoadGameState("savegame.json");
+    }
+
+    if (IsKeyPressed(KEY_L)) {
+        StartAsyncLoadTask();
     }
 
     ball.Move();
