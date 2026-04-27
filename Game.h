@@ -6,7 +6,9 @@
 #include "Networking.h"
 #include "Paddle.h"
 #include "PowerUp.h"
+#include <future>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -131,6 +133,9 @@ private:
     void ApplyNetworkSnapshot(const NetworkSnapshot& snapshot);
     void UpdateNetworkHost();
     void UpdateNetworkClient();
+    void StartAsyncLoadTask();
+    void PollAsyncLoadTask();
+    bool IsAsyncLoading() const;
 
     GameState gameState;
     GameState stateBeforeLeaderboard;
@@ -183,6 +188,13 @@ private:
     float remotePaddleX;
     float remotePaddleY;
     float remotePaddleWidth;
+
+    std::future<void> asyncLoadFuture;
+    mutable std::mutex asyncLoadMutex;
+    bool asyncLoading;
+    bool asyncLoadCompleted;
+    bool asyncColorApplied;
+    Color asyncLoadedBrickTint;
 
     bool interpolationActive;
     double interpolationStartTime;
