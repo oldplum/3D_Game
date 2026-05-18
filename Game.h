@@ -212,8 +212,16 @@ private:
     Rectangle interpolationPaddleFrom;
     Rectangle interpolationPaddleTo;
 
+    // Level management
+    std::vector<LevelData> allLevels;
+    bool LoadLevelsFromJSON(const std::string& path);
     LevelData InitializeLevel(int targetLevel) const;
     void RebuildBricks(const LevelData& levelData);
+    
+    // Save/Load helpers
+    bool CheckForSavedGame();
+    void PromptLoadGame();
+    
     void TryDropPowerUp(Vector2 brickPos);
     void SpawnBrickParticles(const Rectangle& brickRect, Color brickColor);
     void UpdateParticles();

@@ -14,12 +14,14 @@
 rotating_cube.cpp
 orbiting_sphere.cpp
 leaderboard.txt
+savegame.json
 
 OPTIMIZATION_COMPLETE.md
 OPTIMIZATION_DETAILS.md
 OPTIMIZATION_REPORT.md
 SUBMISSION.md
 TESTING_GUIDE.md
+LEVEL_SAVE_SYSTEM.md
 
 # Performance testing files
 performance_log_*.csv

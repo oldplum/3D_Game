@@ -1,0 +1,32 @@
+{
+  "levels": [
+    {
+      "level": 1,
+      "name": "Easy Start",
+      "ballSpeedMultiplier": 1.0,
+      "paddleWidth": 150.0,
+      "brickPattern": [1, 1, 1, 1]
+    },
+    {
+      "level": 2,
+      "name": "Medium Challenge",
+      "ballSpeedMultiplier": 1.5,
+      "paddleWidth": 120.0,
+      "brickPattern": [1, 1, 1, 1, 2, 2]
+    },
+    {
+      "level": 3,
+      "name": "Hard Battle",
+      "ballSpeedMultiplier": 2.0,
+      "paddleWidth": 90.0,
+      "brickPattern": [1, 1, 1, 1, 2, 2, 2, 3]
+    },
+    {
+      "level": 4,
+      "name": "Expert Mode",
+      "ballSpeedMultiplier": 2.7,
+      "paddleWidth": 60.0,
+      "brickPattern": [1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3]
+    }
+  ]
+}

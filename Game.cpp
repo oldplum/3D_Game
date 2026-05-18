@@ -149,6 +149,9 @@ void Game::Init() {
     srand(static_cast<unsigned>(time(NULL)));
     leaderboard = LoadLeaderboard();
     
+    // Load levels from JSON
+    LoadLevelsFromJSON("levels.json");
+    
     // Initialize particle pool
     particles.clear();
     particles.resize(MAX_PARTICLES);
@@ -236,6 +239,11 @@ void Game::Draw() {
         DrawText("Press TAB to View Leaderboard", screenWidth / 2 - 225, 320, 24, DARKGRAY);
         DrawText("Press H to Host | Press C to Connect localhost", screenWidth / 2 - 250, 400, 20, DARKGRAY);
         DrawText("Controls: <- -> move | P pause | L async load", screenWidth / 2 - 255, 450, 20, GRAY);
+        
+        // Show load game option if save exists
+        if (CheckForSavedGame()) {
+            DrawText("Press G to Load Saved Game", screenWidth / 2 - 200, 520, 20, GREEN);
+        }
     } else if (gameState == GameState::LEADERBOARD) {
         DrawText("TOP 10 SCORES", screenWidth / 2 - 150, 50, 40, DARKBLUE);
         for (size_t i = 0; i < leaderboard.size() && i < 10; i++) {
@@ -353,7 +361,64 @@ void Game::Shutdown() {
     CloseWindow();
 }
 
+bool Game::LoadLevelsFromJSON(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    try {
+        json config = json::parse(file);
+        
+        if (!config.contains("levels") || !config["levels"].is_array()) {
+            return false;
+        }
+
+        allLevels.clear();
+        for (const auto& levelJson : config["levels"]) {
+            LevelData level;
+            level.level = levelJson.value("level", 1);
+            level.ballSpeedMultiplier = levelJson.value("ballSpeedMultiplier", 1.0f);
+            level.paddleWidth = levelJson.value("paddleWidth", paddleStartWidth);
+            
+            if (levelJson.contains("brickPattern") && levelJson["brickPattern"].is_array()) {
+                level.brickPattern.clear();
+                for (int brickType : levelJson["brickPattern"]) {
+                    level.brickPattern.push_back(brickType);
+                }
+            }
+            
+            allLevels.push_back(level);
+        }
+        
+        return !allLevels.empty();
+    } catch (const std::exception& e) {
+        return false;
+    }
+}
+
+bool Game::CheckForSavedGame() {
+    std::ifstream file("savegame.json");
+    return file.good();
+}
+
+void Game::PromptLoadGame() {
+    if (!CheckForSavedGame()) {
+        return;
+    }
+    
+    // 在菜单状态显示读档选项 - 稍后会在 Draw() 中处理
+}
+
 Game::LevelData Game::InitializeLevel(int targetLevel) const {
+    // 先尝试从加载的关卡中找
+    for (const auto& level : allLevels) {
+        if (level.level == targetLevel) {
+            return level;
+        }
+    }
+    
+    // 如果没有加载关卡，使用默认硬编码
     LevelData data;
     data.level = targetLevel;
 
@@ -502,6 +567,17 @@ void Game::UpdateMenu() {
 
     if (IsKeyPressed(KEY_C)) {
         StartNetworkClient("127.0.0.1");
+    }
+    
+    // Load saved game with G key
+    if (IsKeyPressed(KEY_G)) {
+        if (LoadGameState("savegame.json")) {
+            // 恢复游戏状态，重新构建砖块
+            LevelData currentLevel = InitializeLevel(level);
+            RebuildBricks(currentLevel);
+            gameState = GameState::LEVEL_READY;
+            levelReadyCountdown = 180;
+        }
     }
 }
 
@@ -675,6 +751,8 @@ void Game::UpdatePlaying() {
                     [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
                 if (leaderboard.size() > 10) leaderboard.pop_back();
                 SaveLeaderboard();
+                // Auto-save at game over
+                SaveGameState("savegame.json");
             } else {
                 int randomXRange = std::max(1, screenWidth - 200);
                 int randomX = 100 + rand() % randomXRange;
@@ -683,6 +761,8 @@ void Game::UpdatePlaying() {
                 combo = 0;
                 levelReadyCountdown = 180;
                 gameState = GameState::LEVEL_READY;
+                // Auto-save after losing a life
+                SaveGameState("savegame.json");
             }
         }
     }
@@ -722,6 +802,8 @@ void Game::UpdatePlaying() {
             RebuildBricks(nextLevel);
 
             gameState = GameState::LEVEL_READY;
+            // Auto-save after level complete
+            SaveGameState("savegame.json");
         } else {
             gameState = GameState::VICTORY;
             leaderboard.push_back({score, level});
@@ -729,6 +811,8 @@ void Game::UpdatePlaying() {
                 [](const HighScore& a, const HighScore& b) { return a.score < b.score; });
             if (leaderboard.size() > 10) leaderboard.pop_back();
             SaveLeaderboard();
+            // Auto-save at victory
+            SaveGameState("savegame.json");
         }
     }
 }
