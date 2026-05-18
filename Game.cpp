@@ -148,6 +148,17 @@ void Game::Init() {
     SetTargetFPS(60);
     srand(static_cast<unsigned>(time(NULL)));
     leaderboard = LoadLeaderboard();
+    
+    // Initialize particle pool
+    particles.clear();
+    particles.resize(MAX_PARTICLES);
+    for (auto& p : particles) {
+        p.active = false;
+    }
+    particlePoolIndex = 0;
+    
+    // Initialize performance logging
+    InitPerformanceLogging();
 }
 
 void Game::Update() {
@@ -195,6 +206,9 @@ void Game::Update() {
         case GameState::NETWORK_WAITING:
             break;
     }
+    
+    // Log performance metrics every 60 frames
+    LogPerformanceMetrics();
 }
 
 void Game::Draw() {
@@ -311,6 +325,20 @@ void Game::Draw() {
         int frameIndex = (frameCounter / 15) % 4;
         DrawRectangle(0, 0, screenWidth, screenHeight, Color{0, 0, 0, 100});
         DrawText(loadingFrames[frameIndex], screenWidth / 2 - 90, screenHeight / 2 - 20, 42, WHITE);
+    }
+
+    if (gameState == GameState::PLAYING || gameState == GameState::LEVEL_READY) {
+        int fps = GetFPS();
+        int activeParticles = 0;
+        for (const auto& p : particles) {
+            if (p.active) activeParticles++;
+        }
+
+        const int metricsX = 10;
+        const int metricsY = 128;
+        DrawRectangle(metricsX - 4, metricsY - 4, 180, 52, Color{255, 255, 255, 200});
+        DrawText(TextFormat("FPS: %d", fps), metricsX, metricsY, 20, BLACK);
+        DrawText(TextFormat("Particles: %d/%d", activeParticles, MAX_PARTICLES), metricsX, metricsY + 22, 18, DARKGRAY);
     }
 
     EndDrawing();
@@ -447,7 +475,10 @@ void Game::StartNewRun() {
     paddle = Paddle((screenWidth - currentLevel.paddleWidth) * 0.5f, screenHeight - 50.0f, currentLevel.paddleWidth, paddleHeight);
     RebuildBricks(currentLevel);
     powerups.clear();
-    particles.clear();
+    for (auto& p : particles) {
+        p.active = false;
+    }
+    particlePoolIndex = 0;
     {
         std::lock_guard<std::mutex> lock(asyncLoadMutex);
         asyncLoading = false;
@@ -677,7 +708,10 @@ void Game::UpdatePlaying() {
 
             paddle.ResetWidth();
             powerups.clear();
-            particles.clear();
+            for (auto& p : particles) {
+                p.active = false;
+            }
+            particlePoolIndex = 0;
 
             LevelData nextLevel = InitializeLevel(level);
             int randomXRange = std::max(1, screenWidth - 200);
@@ -1036,8 +1070,13 @@ void Game::CheckBrickCollision(Ball& targetBall) {
 void Game::SpawnBrickParticles(const Rectangle& brickRect, Color brickColor) {
     const int particleCount = 10;
     for (int i = 0; i < particleCount; i++) {
-        Particle particle;
-
+        // Use object pool - wrap around if needed
+        if (particlePoolIndex >= MAX_PARTICLES) {
+            particlePoolIndex = 0;
+        }
+        
+        Particle& particle = particles[particlePoolIndex];
+        
         float randomX = static_cast<float>(rand() % static_cast<int>(std::max(1.0f, brickRect.width)));
         float randomY = static_cast<float>(rand() % static_cast<int>(std::max(1.0f, brickRect.height)));
         particle.position = {brickRect.x + randomX, brickRect.y + randomY};
@@ -1051,7 +1090,8 @@ void Game::SpawnBrickParticles(const Rectangle& brickRect, Color brickColor) {
         particle.maxLife = particle.life;
         particle.size = 2.0f + static_cast<float>(rand() % 3);
         particle.active = true;
-        particles.push_back(particle);
+        
+        particlePoolIndex++;
     }
 }
 
@@ -1069,9 +1109,6 @@ void Game::UpdateParticles() {
             particle.active = false;
         }
     }
-
-    particles.erase(std::remove_if(particles.begin(), particles.end(),
-        [](const Particle& particle) { return !particle.active; }), particles.end());
 }
 
 void Game::DrawParticles() {
@@ -1344,5 +1381,36 @@ bool Game::LoadGameState(const std::string& path) {
         return true;
     } catch (const std::exception&) {
         return false;
+    }
+}
+
+void Game::InitPerformanceLogging() {
+    std::string logFile = "performance_log_" + std::to_string(time(NULL)) + ".csv";
+    performanceLog.open(logFile, std::ios::out);
+    if (performanceLog.is_open()) {
+        performanceLog << "Frame,FPS,ActiveParticles,GameState\n";
+        performanceLog.flush();
+    }
+    framesSinceLastLog = 0;
+    totalFpsForLog = 0.0;
+}
+
+void Game::LogPerformanceMetrics() {
+    framesSinceLastLog++;
+    totalFpsForLog += GetFPS();
+    
+    // Log every 60 frames (about 1 second at 60 FPS)
+    if (framesSinceLastLog >= 60 && performanceLog.is_open()) {
+        int avgFps = static_cast<int>(totalFpsForLog / framesSinceLastLog);
+        int activeParticles = 0;
+        for (const auto& p : particles) {
+            if (p.active) activeParticles++;
+        }
+        
+        performanceLog << frameCounter << "," << avgFps << "," << activeParticles << "," << static_cast<int>(gameState) << "\n";
+        performanceLog.flush();
+        
+        framesSinceLastLog = 0;
+        totalFpsForLog = 0.0;
     }
 }

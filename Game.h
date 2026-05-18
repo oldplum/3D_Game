@@ -7,6 +7,7 @@
 #include "Paddle.h"
 #include "PowerUp.h"
 #include <future>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -177,6 +178,10 @@ private:
     std::vector<Particle> particles;
     std::vector<HighScore> leaderboard;
 
+    // Particle pool for optimization
+    static const int MAX_PARTICLES = 2000;
+    int particlePoolIndex = 0;
+
     int paddleExpandTimer;
     int ballSlowTimer;
     int pierceTimer;
@@ -233,6 +238,13 @@ private:
     bool CheckBottomCollision(const Ball& targetBall) const;
     void HandlePowerUpCatch(PowerUp& powerUp);
     bool AreAllBricksClear() const;
+    
+    // Performance logging
+    std::ofstream performanceLog;
+    int framesSinceLastLog = 0;
+    double totalFpsForLog = 0.0;
+    void InitPerformanceLogging();
+    void LogPerformanceMetrics();
 };
 
 #endif
