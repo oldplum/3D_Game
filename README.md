@@ -100,25 +100,6 @@ ctest -R collision_test --output-on-failure
 - `Networking.h` / `Networking.cpp`：ENet 封装（`NetworkSession`），实现 JSON 消息接口。
 - `Ball.*`, `Paddle.*`, `Brick.*`, `PowerUp.*`：游戏对象与逻辑。
 
-## 开发团队
-
-仓库中没有找到真实的团队署名或作者列表，所以这里不替你编造姓名。
-
-如果你要按课程或提交要求展示分工，可以直接替换成真实成员；当前版本先保留职责说明模板：
-
-- 游戏逻辑与碰撞：负责 `Game.cpp` 中的状态机、碰撞、关卡和存档流程。
-- 网络联机：负责 `Networking.cpp` / `Networking.h` 中的 ENet 会话、快照同步与输入同步。
-- UI 与特效：负责菜单、排行榜显示、粒子系统与渲染表现。
-- 配置与测试：负责 `config.json`、`levels.json`、`tests/collision_test.cpp` 和性能日志。
-
-## AI 使用纪录
-
-仓库中没有现成的 AI 使用记录，因此这里写成基于本仓库实际实现的说明模板，避免无依据填写。
-
-- 使用 AI 辅助梳理了 `Game.cpp`、`Networking.cpp`、`CMakeLists.txt` 的实际结构，再据此整理 README，而不是按模板空写。
-- 使用 AI 归纳了网络端口、输入键位、存档文件和测试入口等可从代码确认的信息。
-- 如果你有课程或项目要求的正式 AI 使用登记，可以把“使用场景、修改文件、人工复核内容”补到这一节。
-
 ## 贡献与开发
 
 - 欢迎提交 Issue 或 Pull Request。请在 PR 中说明修改目的，尽量保持风格一致并包含必要注释。
