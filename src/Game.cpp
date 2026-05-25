@@ -11,6 +11,21 @@
 
 using json = nlohmann::json;
 
+namespace {
+
+std::ifstream OpenFileWithFallback(const std::string& primaryPath, const std::string& fallbackPath) {
+    std::ifstream file(primaryPath);
+    if (file.is_open() || primaryPath == fallbackPath) {
+        return file;
+    }
+
+    file.clear();
+    file.open(fallbackPath);
+    return file;
+}
+
+} // namespace
+
 Game::Game()
         : gameState(GameState::MENU),
             stateBeforeLeaderboard(GameState::MENU),
@@ -68,7 +83,7 @@ Game::Game()
                 interpolationPaddleTo({0.0f, 0.0f, 0.0f, 0.0f}) {}
 
 void Game::LoadConfig(const std::string& path) {
-    std::ifstream file(path);
+    std::ifstream file = OpenFileWithFallback(path, "assets/config.json");
     if (!file.is_open()) {
         return;
     }
@@ -143,14 +158,14 @@ void Game::LoadConfig(const std::string& path) {
 }
 
 void Game::Init() {
-    LoadConfig("config.json");
+    LoadConfig("assets/config.json");
     InitWindow(screenWidth, screenHeight, windowTitle.c_str());
     SetTargetFPS(60);
     srand(static_cast<unsigned>(time(NULL)));
     leaderboard = LoadLeaderboard();
     
     // Load levels from JSON
-    LoadLevelsFromJSON("levels.json");
+    LoadLevelsFromJSON("levels/levels.json");
     
     // Initialize particle pool
     particles.clear();
@@ -362,7 +377,7 @@ void Game::Shutdown() {
 }
 
 bool Game::LoadLevelsFromJSON(const std::string& path) {
-    std::ifstream file(path);
+    std::ifstream file = OpenFileWithFallback(path, "levels/levels.json");
     if (!file.is_open()) {
         return false;
     }

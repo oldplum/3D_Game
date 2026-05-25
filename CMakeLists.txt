@@ -32,18 +32,19 @@ endif()
 find_library(RAYLIB_LIBRARY raylib REQUIRED)
 
 add_executable(breakout_week2
-    main.cpp
-    Game.cpp
-    Ball.cpp
-    Paddle.cpp
-    Brick.cpp
-    PowerUp.cpp
-    PowerUpEffect.cpp
-    Networking.cpp
+    src/main.cpp
+    src/Game.cpp
+    src/Ball.cpp
+    src/Paddle.cpp
+    src/Brick.cpp
+    src/PowerUp.cpp
+    src/PowerUpEffect.cpp
+    src/Networking.cpp
 )
 
 target_include_directories(breakout_week2
     PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${enet_SOURCE_DIR}/include
 )
 
@@ -64,13 +65,13 @@ target_link_libraries(breakout_week2
 
 add_executable(collision_test
     tests/collision_test.cpp
-    Ball.cpp
-    Brick.cpp
+    src/Ball.cpp
+    src/Brick.cpp
 )
 
 target_include_directories(collision_test
     PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(collision_test

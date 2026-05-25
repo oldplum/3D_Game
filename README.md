@@ -7,8 +7,8 @@
 ## 本仓库概览
 
 - 可执行目标：构建后默认二进制名为 `game`（在构建目录中）。见 [CMakeLists.txt](CMakeLists.txt#L1)。
-- 主要源码：`main.cpp`, `Game.cpp` / `Game.h`, `Networking.cpp` / `Networking.h`, `Ball*.cpp` / `Paddle*.cpp`, `PowerUp*.cpp`。
-- 配置与数据：`config.json`, `levels.json`, `savegame.json`, `leaderboard.txt`。
+- 主要源码：`src/main.cpp`, `src/Game.cpp` / `include/Game.h`, `src/Networking.cpp` / `include/Networking.h`, `src/Ball*.cpp` / `src/Paddle*.cpp`, `src/PowerUp*.cpp`。
+- 配置与数据：`assets/config.json`, `levels/levels.json`, `savegame.json`, `leaderboard.txt`。
 - 测试：`tests/collision_test.cpp`（CMake target `collision_test`）。
 
 ## 主要依赖
@@ -72,12 +72,12 @@ g++ -g rotating_cube.cpp -o output/rotating_cube -lraylib -lGL -lm -lpthread -ld
 
 ## 配置与存档
 
-- `config.json`：窗口大小、球速、挡板参数、关卡等可配置项（`Game::LoadConfig` 会读取）。
-- `levels.json`：关卡数据（默认会在 `Init()` 中通过 `LoadLevelsFromJSON` 加载）。
+- `assets/config.json`：窗口大小、球速、挡板参数、关卡等可配置项（`Game::LoadConfig` 会读取）。
+- `levels/levels.json`：关卡数据（默认会在 `Init()` 中通过 `LoadLevelsFromJSON` 加载）。
 - `savegame.json`：自动/手动保存的游戏状态（`SaveGameState` / `LoadGameState`）。
 - `leaderboard.txt`：排行榜（简单文本格式，分数 与 关卡一行两个数字）。
 
-示例：编辑 `config.json` 来调整初始窗口或道具参数。
+示例：编辑 `assets/config.json` 来调整初始窗口或道具参数。
 
 ## 测试与性能
 
@@ -95,10 +95,10 @@ ctest -R collision_test --output-on-failure
 
 ## 代码结构（快速导览）
 
-- `main.cpp`：程序入口，创建 `Game` 实例并循环调用 `Init/Update/Draw/Shutdown`。
-- `Game.h` / `Game.cpp`：游戏状态机、输入、网络集成、存档及主要流程。
-- `Networking.h` / `Networking.cpp`：ENet 封装（`NetworkSession`），实现 JSON 消息接口。
-- `Ball.*`, `Paddle.*`, `Brick.*`, `PowerUp.*`：游戏对象与逻辑。
+- `src/main.cpp`：程序入口，创建 `Game` 实例并循环调用 `Init/Update/Draw/Shutdown`。
+- `include/Game.h` / `src/Game.cpp`：游戏状态机、输入、网络集成、存档及主要流程。
+- `include/Networking.h` / `src/Networking.cpp`：ENet 封装（`NetworkSession`），实现 JSON 消息接口。
+- `src/Ball.*`, `src/Paddle.*`, `src/Brick.*`, `src/PowerUp.*`：游戏对象与逻辑。
 
 ## 贡献与开发
 
