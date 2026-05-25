@@ -1094,10 +1094,12 @@ void Game::UpdateNetworkClient() {
     }
 }
 
+// 处理球与本方挡板的碰撞：统一走带矩形参数的版本，便于主机和远程挡板复用。
 void Game::CheckPaddleCollision(Ball& targetBall) {
     CheckPaddleCollisionWithRect(targetBall, paddle.GetRect(), false);
 }
 
+// 根据挡板位置和球的运动方向判断反弹方向，避免球穿透挡板。
 void Game::CheckPaddleCollisionWithRect(Ball& targetBall, const Rectangle& paddleRect, bool topPaddle) {
     Vector2 ballPos = targetBall.GetPosition();
     Vector2 ballSpeed = targetBall.GetSpeed();
@@ -1118,6 +1120,9 @@ void Game::CheckPaddleCollisionWithRect(Ball& targetBall, const Rectangle& paddl
     }
 }
 
+// 逐个检查砖块碰撞：
+// 1) 普通模式下只命中第一个有效砖块并反弹；
+// 2) 穿透模式下可以连续击穿多个砖块，但仍只计算一次球的方向反转。
 void Game::CheckBrickCollision(Ball& targetBall) {
     bool hitBrick = false;
 
@@ -1148,13 +1153,14 @@ void Game::CheckBrickCollision(Ball& targetBall) {
         }
     }
 
+    // 没有击中任何砖块时，连击断开并清零。
     if (!hitBrick) combo = 0;
 }
 
 void Game::SpawnBrickParticles(const Rectangle& brickRect, Color brickColor) {
     const int particleCount = 10;
     for (int i = 0; i < particleCount; i++) {
-        // Use object pool - wrap around if needed
+        // 粒子池采用环形复用，防止每次击碎砖块都重新分配内存。
         if (particlePoolIndex >= MAX_PARTICLES) {
             particlePoolIndex = 0;
         }
@@ -1219,6 +1225,7 @@ Color Game::GetBrickColor(int brickType) const {
     return GOLD;
 }
 
+// 判断球是否越过底边；具体扣命、重开或结算由外层状态机处理。
 bool Game::CheckBottomCollision(const Ball& targetBall) const {
     return targetBall.GetPosition().y + targetBall.GetRadius() >= screenHeight;
 }
