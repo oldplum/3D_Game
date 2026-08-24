@@ -119,6 +119,18 @@ ctest -R collision_test --output-on-failure
 - `include/Networking.h` / `src/Networking.cpp`：ENet 封装（`NetworkSession`），实现 JSON 消息接口。
 - `src/Ball.*`, `src/Paddle.*`, `src/Brick.*`, `src/PowerUp.*`：游戏对象与逻辑。
 
+## 👥 贡献者 (Contributors)
+
+感谢以下开发者对本项目的贡献与支持：
+
+<p align="left">
+  <a href="https://github.com/oldplum"><img src="https://github.com/oldplum.png?size=60" width="60" height="60" alt="@oldplum" style="border-radius:50%; margin-right: 8px;" /></a>
+  <a href="https://github.com/insom836"><img src="https://github.com/insom836.png?size=60" width="60" height="60" alt="@insom836" style="border-radius:50%;" /></a>
+</p>
+
+- [@oldplum](https://github.com/oldplum)
+- [@insom836](https://github.com/insom836)
+
 ## 贡献与开发
 
 - 欢迎提交 Issue 或 Pull Request。请在 PR 中说明修改目的，尽量保持风格一致并包含必要注释。
