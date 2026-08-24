@@ -1,0 +1,98 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: linux-x86_64
+          - os: windows-latest
+            artifact_name: windows-x86_64
+          - os: macos-latest
+            artifact_name: macos-arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Run Tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package Release (Linux / macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          PKG_NAME="Breakout2D-${{ github.ref_name }}-${{ matrix.artifact_name }}"
+          mkdir -p "$PKG_NAME"
+          cp build/game "$PKG_NAME/"
+          cp -r assets levels README.md LICENSE "$PKG_NAME/"
+          tar -czvf "${PKG_NAME}.tar.gz" "$PKG_NAME"
+
+      - name: Package Release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pkgName = "Breakout2D-${{ github.ref_name }}-${{ matrix.artifact_name }}"
+          New-Item -ItemType Directory -Force -Path $pkgName
+          if (Test-Path "build/Release/game.exe") {
+            Copy-Item "build/Release/game.exe" -Destination "$pkgName/"
+          } elseif (Test-Path "build/game.exe") {
+            Copy-Item "build/game.exe" -Destination "$pkgName/"
+          }
+          Copy-Item -Recurse "assets", "levels", "README.md", "LICENSE" -Destination "$pkgName/"
+          Compress-Archive -Path $pkgName -DestinationPath "${pkgName}.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.artifact_name }}
+          path: |
+            *.tar.gz
+            *.zip
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

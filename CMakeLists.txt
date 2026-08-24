@@ -29,7 +29,26 @@ else()
     message(FATAL_ERROR "ENet target not found")
 endif()
 
-find_library(RAYLIB_LIBRARY raylib REQUIRED)
+find_package(raylib 5.0 QUIET)
+if(NOT raylib_FOUND)
+    find_library(RAYLIB_LIBRARY raylib QUIET)
+endif()
+
+if(NOT raylib_FOUND AND NOT RAYLIB_LIBRARY)
+    FetchContent_Declare(
+        raylib
+        GIT_REPOSITORY https://github.com/raysan5/raylib.git
+        GIT_TAG 5.0
+        GIT_SHALLOW TRUE
+    )
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(raylib)
+    set(RAYLIB_TARGET raylib)
+elseif(raylib_FOUND)
+    set(RAYLIB_TARGET raylib)
+else()
+    set(RAYLIB_TARGET ${RAYLIB_LIBRARY})
+endif()
 
 add_executable(breakout_week2
     src/main.cpp
@@ -52,16 +71,18 @@ set_target_properties(breakout_week2 PROPERTIES OUTPUT_NAME game)
 
 target_link_libraries(breakout_week2
     PRIVATE
-    ${RAYLIB_LIBRARY}
+    ${RAYLIB_TARGET}
     nlohmann_json::nlohmann_json
     ${ENET_TARGET}
-    GL
-    m
-    pthread
-    dl
-    rt
-    X11
 )
+
+if(WIN32)
+    target_link_libraries(breakout_week2 PRIVATE winmm ws2_32 opengl32 gdi32 user32 shell32)
+elseif(APPLE)
+    target_link_libraries(breakout_week2 PRIVATE "-framework OpenGL" "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
+else()
+    target_link_libraries(breakout_week2 PRIVATE GL m pthread dl rt X11)
+endif()
 
 add_executable(collision_test
     tests/collision_test.cpp
@@ -76,13 +97,15 @@ target_include_directories(collision_test
 
 target_link_libraries(collision_test
     PRIVATE
-    ${RAYLIB_LIBRARY}
-    GL
-    m
-    pthread
-    dl
-    rt
-    X11
+    ${RAYLIB_TARGET}
 )
+
+if(WIN32)
+    target_link_libraries(collision_test PRIVATE winmm opengl32 gdi32 user32 shell32)
+elseif(APPLE)
+    target_link_libraries(collision_test PRIVATE "-framework OpenGL" "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
+else()
+    target_link_libraries(collision_test PRIVATE GL m pthread dl rt X11)
+endif()
 
 add_test(NAME collision_test COMMAND collision_test)

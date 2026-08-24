@@ -1,5 +1,14 @@
 # Breakout 2D
 
+<p align="left">
+  <a href="https://github.com/oldplum/3D_Game/releases"><img src="https://img.shields.io/github/v/release/oldplum/3D_Game?color=blue&label=Release" alt="Release"></a>
+  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-informational" alt="Platform">
+  <img src="https://img.shields.io/badge/Language-C%2B%2B17-00599C?logo=c%2B%2B&logoColor=white" alt="C++17">
+  <img src="https://img.shields.io/badge/Library-Raylib-white?logo=raylib" alt="Raylib">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
+  <a href="https://github.com/oldplum/3D_Game/actions"><img src="https://img.shields.io/github/actions/workflow/status/oldplum/3D_Game/release.yml?label=Build" alt="Build"></a>
+</p>
+
 ## 简介
 
 `Breakout 2D` 是一个使用 `raylib` 开发的打砖块风格游戏，代码库包含单机玩法、局域网/网络对战（基于 ENet）、道具与多关卡存档。该项目实现了若干性能优化（对象池、粒子复用、按需异步加载）。
@@ -104,6 +113,9 @@ ctest -R collision_test --output-on-failure
 
 - 欢迎提交 Issue 或 Pull Request。请在 PR 中说明修改目的，尽量保持风格一致并包含必要注释。
 - 若贡献网络/跨平台改进，请包含在不同主机上联机测试的说明（端口、防火墙、NAT 穿透等）。
+
+## 许可证
+本项目采用 [MIT License](LICENSE) 开源许可证。
 
 ## 联系方式
 
