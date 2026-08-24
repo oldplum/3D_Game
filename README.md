@@ -31,7 +31,17 @@
 
 在首次运行 CMake 前请确保上述系统依赖已安装（例如在 Debian/Ubuntu 上安装对应 dev 包）。
 
-## 快速开始（推荐：CMake）
+## 📦 下载即玩（免编译）
+
+如果你只想直接游玩游戏，无需配置编译环境，可前往 [GitHub Releases](https://github.com/oldplum/3D_Game/releases) 下载对应系统的预编译压缩包：
+
+- **Windows 用户**：下载 `Breakout2D-*-windows-x86_64.zip`，解压后双击 `game.exe` 即可游玩。
+- **Linux 用户**：下载 `Breakout2D-*-linux-x86_64.tar.gz`，解压后在终端运行 `./game`。
+- **macOS 用户**：下载 `Breakout2D-*-macos-arm64.tar.gz`，解压后双击运行 `game`（首次运行若提示无法验证开发者，请右键点击选择“打开”，或在终端执行 `xattr -cr game`）。
+
+> **注意**：运行游戏时请保留同级目录下的 `assets/` 和 `levels/` 资源文件夹。
+
+## 🛠️ 源码构建（开发者）
 
 在项目根目录执行：
 
