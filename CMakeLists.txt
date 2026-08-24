@@ -1,3 +1,4 @@
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "")
 cmake_minimum_required(VERSION 3.14)
 project(breakout_week2)
 
@@ -38,7 +39,7 @@ if(NOT raylib_FOUND AND NOT RAYLIB_LIBRARY)
     FetchContent_Declare(
         raylib
         GIT_REPOSITORY https://github.com/raysan5/raylib.git
-        GIT_TAG 5.0
+        GIT_TAG master
         GIT_SHALLOW TRUE
     )
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
